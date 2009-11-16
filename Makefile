@@ -7,7 +7,6 @@ SRC := ev.c cachefor.c
 TARGET := cachefor
 
 LIBS   := -lrt  # for clock_gettime(2)
-CC     := gcc
 CFLAGS := -Wall -Wextra -pipe -Wwrite-strings -Wsign-compare \
 				 -Wshadow -Wformat=2 -Wundef -Wstrict-prototypes   \
 				 -fno-strict-aliasing -fno-common -Wformat-security \
