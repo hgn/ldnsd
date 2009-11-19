@@ -24,9 +24,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/types.h>
+#include <assert.h>
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -36,6 +38,7 @@
 #include <stdarg.h>
 
 #include "ev.h"
+#include "clist.h"
 
 #ifdef HAVE_RDTSCLL
 # include <linux/timex.h>
@@ -126,9 +129,6 @@
 
 #define	MAXERRMSG 1024
 
-struct dns_request {
-};
-
 enum ns_status {
 	NS_STATUS_NEW = 1,
 	NS_STATUS_ALIVE,
@@ -136,11 +136,48 @@ enum ns_status {
 };
 
 struct nameserver {
+	int socket; /* a connected UDP socket */
+	struct sockaddr_storage address;
 	enum ns_status status;
 	struct ev_entry *timeout;
 };
 
+struct dns_sub_question {
+	uint16_t type;
+	uint16_t class;
+	char *name;
+};
+
+/* a incoming request from a resolver */
+struct dns_request {
+	char *packet;
+	size_t len;
+
+	/* caller origin */
+	struct sockaddr_storage src_ss;
+	socklen_t src_ss_len;
+
+	/* request intrinsic values */
+	uint16_t id;
+	uint16_t flags;
+	uint16_t questions;
+	uint16_t answers;
+	uint16_t authority;
+	uint16_t additional;
+
+	struct dns_sub_question **dns_sub_question;
+
+	unsigned type; /* A, AAAA, PTR */
+	struct nameserver *ns; /* a pointer to the used nameserver */
+};
+
+struct cachefor {
+	struct dns_request pending_dns_requests;
+	struct dns_request processed_dns_requests;
+};
+
 struct ev *ev_hndl;
+struct cachefor *cachefor;
 
 static int subtime(struct timeval *op1, struct timeval *op2,
 		struct timeval *result)
@@ -226,11 +263,16 @@ void x_err_sys(const char *file, int line_no, const char *fmt, ...)
 
 static void * xmalloc(size_t size)
 {
-
 	void *ptr = malloc(size);
-
 	if (!ptr)
 		err_msg_die(EXIT_FAILMEM, "Out of mem: %s!\n", strerror(errno));
+	return ptr;
+}
+
+static void* xzalloc(size_t size)
+{
+	void *ptr = xmalloc(size);
+	memset(ptr, 0, size);
 	return ptr;
 }
 
@@ -297,8 +339,11 @@ static int initiate_seed(void)
 				"Cannot open random pool file %s", RANDPOOLSRC);
 
 	ret = read(rand_fd, &randpool, sizeof(uint32_t));
-	if (ret != sizeof(uint32_t))
-		err_sys_die(EXIT_FAILINT, "Can't read randpool\n");
+	if (ret != sizeof(uint32_t)) {
+		srandom(time(NULL) & getpid());
+		close(rand_fd);
+		return FAILURE;
+	}
 
 	/* set global seed */
 	srandom(randpool);
@@ -397,20 +442,190 @@ static void fini_server_socket(int fd)
 	close(fd);
 }
 
-static int validate_dns_query(const char *packet, size_t len)
+static int get8(const char *data, size_t idx, size_t max, uint8_t *ret)
+{
+	uint16_t tmp;
+
+	if (idx + 1 > max)
+		return FAILURE;
+
+	memcpy(&tmp, data + idx, 1);
+	*ret = tmp;
+	return 1;
+}
+
+static int get16(const char * data, size_t idx, size_t max, uint16_t *ret)
+{
+	uint16_t tmp;
+
+	if (idx + 2 > max)
+		return FAILURE;
+
+	memcpy(&tmp, data + idx, 2);
+	*ret = ntohs(tmp);
+	return 2;
+}
+
+static int enqueue_request(struct cachefor *cf, struct dns_request *dns_request)
 {
 	return SUCCESS;
 }
 
-static void process_dns_query(const char *packet, size_t len)
+static int process_pending_request(struct cachefor *cf)
 {
-	int ret;
+	return SUCCESS;
+}
 
-	pr_debug("process DNS query [packet size: %d]", len);
+#define	PTR_MASK 0xc0
+#define	IS_PTR(x) (x & PTR_MASK)
 
-	ret = validate_dns_query(packet, len);
+/* this function is a little bit tricky, the DNS packet format provides a
+ * mechanism to compress a string. A special pattern signals that the next
+ * bytes are a pointer to another place and not a vanilla character array */
+static int get_name(const char *data, size_t idx, size_t max,
+		char *ret_data, size_t max_data_ret_len)
+{
+	uint8_t llen, offset_ptr;
+	int name_end = -1; /* FIXME: change name of name_end */
+	size_t i = idx;
+	unsigned jumps = 0;
+	char *cp = ret_data;
+	const char *const end = ret_data + max_data_ret_len;
+
+	assert(idx <= max);
+
+	while(666) {
+		i += get8(data, i, max, &llen);
+
+		pr_debug("label len: %u", llen);
+
+		if (llen == 0) /* reached end of string */
+			break;
+
+		if (IS_PTR(llen)) {
+			pr_debug("label is pointer");
+			i += get8(data, i, max, &offset_ptr);
+			if (name_end < 0)
+				name_end = i;
+			i = (((int)llen & 0x3f) << 8) + offset_ptr;
+			if (i > max) {
+				err_msg("name format corrupt, skipping it");
+				return FAILURE;
+			}
+			if (jumps++ > max) {
+				err_msg("corrupted name, we jump more then characters in the array");
+				return FAILURE;
+			}
+
+			/* and jump */
+			continue;
+		}
+
+		if (llen > 63) {
+			err_msg("corrupted name format");
+			return FAILURE;
+		}
+
+		if (cp != ret_data) {
+			if (cp + 1 >= end) {
+				return FAILURE;
+			}
+			*cp++ = '.';
+		}
+		if (cp + llen >= end)
+			return FAILURE;
+		memcpy(cp, data + i, llen);
+		cp += llen;
+		i  += llen;
+	}
+
+	if (cp >= end)
+		return FAILURE;
+	*cp = '\0';
+
+	if (name_end < 0) {
+		return i;
+	} else {
+		return name_end;
+	}
+}
+
+#define	DNS_FLAG_MASK_QUESTION 0x0100
+#define	DNS_FLAG_STANDARD_QUERY 0x7800
+#define	IS_DNS_QUESTION(x) (x & DNS_FLAG_MASK_QUESTION)
+#define	IS_DNS_STANDARD_QUERY(x) (x & DNS_FLAG_STANDARD_QUERY)
+
+static void process_dns_query(const char *packet, const size_t len,
+		const struct sockaddr_storage *ss, socklen_t ss_len)
+{
+	int ret, i = 0, ii, j;
+	struct dns_request *dr;
+
+	dr = xzalloc(sizeof(struct dns_request));
+
+	i += get16(packet, i, len, &dr->id);
+	i += get16(packet, i, len, &dr->flags);
+	i += get16(packet, i, len, &dr->questions);
+	i += get16(packet, i, len, &dr->answers);
+	i += get16(packet, i, len, &dr->authority);
+	i += get16(packet, i, len, &dr->additional);
+
+	pr_debug("process DNS query [packet size: %d id:%u, flags:0x%x, "
+			 "questions:%u, answers:%u, authority:%u, additional:%u]",
+			 len, dr->id, dr->flags, dr->questions, dr->answers, dr->authority, dr->additional);
+
+	if (!IS_DNS_QUESTION(dr->flags)) {
+		pr_debug("incoming packet is no accepted DNS packet (flags: 0x%x, accepted: 0x%x",
+				dr->flags, DNS_FLAG_MASK_QUESTION);
+		free(dr);
+		return;
+	}
+
+	/* save caller address */
+	memcpy(&dr->src_ss, ss, sizeof(struct sockaddr_storage));
+	dr->src_ss_len = ss_len;
+
+	dr->dns_sub_question = xzalloc(sizeof(struct dns_sub_question *) * dr->questions);
+
+#define	MAX_DNS_NAME 256
+
+	for (j = 0; j < dr->questions; j++) {
+		uint16_t type, class;
+		struct dns_sub_question *dnssq;
+		char name[MAX_DNS_NAME];
+
+		ii = get_name(packet, i, len, name, MAX_DNS_NAME);
+		if (ii == FAILURE) {
+			err_msg("corrupted name format");
+			return;
+		}
+		i += ii;
+
+		pr_debug("parsed name: %s\n", name);
+
+
+		dnssq = xzalloc(sizeof(struct dns_sub_question));
+
+		i += get16(packet, i, len, &dnssq->type);
+		i += get16(packet, i, len, &dnssq->class);
+
+		dnssq->name = xzalloc(strlen(name) + 1);
+
+		memcpy(dnssq->name, name, strlen(name) + 1);
+
+		dr->dns_sub_question[j] = dnssq;
+	}
+
+	if (IS_DNS_STANDARD_QUERY(dr->flags)) {
+		pr_debug("only standard queries supportet (flag: 0x%x)\n", dr->flags);
+		/* XXX: send a failure packet back to the host */
+		return;
+	}
+
+	/* now we do the actual query */
+	ret = enqueue_request(cachefor, dr);
 	if (ret != SUCCESS) {
-		err_msg("Invalid DNS query received from ...");
+		err_msg("Cannot enqueue request in active queue");
 		return;
 	}
 }
@@ -421,21 +636,31 @@ static void incoming_request(int fd, int what, void *data)
 {
 	ssize_t rc;
 	char packet[MAX_PACKET_LEN];
+	struct sockaddr_storage ss;
+	socklen_t ss_len = sizeof(struct sockaddr_storage);
 
 	pr_debug("incoming DNS request");
 
-	rc = read(fd, packet, MAX_PACKET_LEN);
+	rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr*) &ss, &ss_len);
 	if (rc < 0) {
-		err_sys_die(EXIT_FAILINT, "Can't read from server socket\n");
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return;
+		err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
 	}
 
-	process_dns_query(packet, rc);
+	process_dns_query(packet, rc, &ss, ss_len);
 }
 
 static int ev_add_server_socket(int fd)
 {
 	int ret;
 	struct ev_entry *ev_entry;
+
+	ret = ev_set_non_blocking(fd);
+	if (ret != EV_SUCCESS) {
+		err_msg("Cannot set server socket to work in a non-blocking manner");
+		return FAILURE;
+	}
 
 	ev_entry = ev_entry_new(fd, EV_READ, incoming_request, NULL);
 	if (!ev_entry) {
@@ -452,14 +677,31 @@ static int ev_add_server_socket(int fd)
 	return SUCCESS;
 }
 
+struct cachefor *init_cachefor(void)
+{
+	return xzalloc(sizeof(struct cachefor));
+}
+
+free_cachefor(struct cachefor *c)
+{
+	free(c); c = NULL;
+}
+
 
 int main(void)
 {
-	int ret;
-	int server_socket;
-	int flags = 0;
+	int ret, server_socket, flags = 0;
+
+	fprintf(stdout, "cachefor - a lighweight caching and forwarding DNS server (C) 2009\n");
 
 	ev_hndl = ev_init_hdntl();
+
+	cachefor = init_cachefor();
+
+	ret = initiate_seed();
+	if (ret == FAILURE) {
+		err_msg("PRNG cannot be initialized satisfying (fallback to time(3) and getpid(3))");
+	}
 
 	server_socket = init_server_socket(AF_INET, SOCK_DGRAM, 0, DEFAULT_LISTEN_PORT);
 
@@ -468,24 +710,17 @@ int main(void)
 		err_msg("Cannot initialize server event handling");
 		fini_server_socket(server_socket);
 		ev_free_hndl(ev_hndl);
+		free_cachefor(cachefor);
 		return EXIT_FAILEVENT;
 	}
-
-#if 0
-	rand_init();
-
-	ev_init_hndl();
-
-	server_fd = init_server_socket();
-
-	ev_add_server_fd(server_fd);
-#endif
 
 	ev_loop(ev_hndl, flags);
 
 	fini_server_socket(server_socket);
 
 	ev_free_hndl(ev_hndl);
+
+	free_cachefor(cachefor);
 
 	return EXIT_SUCCESS;
 }

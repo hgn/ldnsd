@@ -2,8 +2,7 @@ EPOLL :=1
 
 DEBUG_BUILD := testing
 
-OBJ := ev.o cachefor.o
-SRC := ev.c cachefor.c
+OBJ := ev.o cachefor.o clist.o
 TARGET := cachefor
 
 LIBS   := -lrt  # for clock_gettime(2)
@@ -26,6 +25,9 @@ ifdef DEBUG_BUILD
 				EXTRA_CFLAGS += -DDEBUG
 endif
 
+.SUFFIXES:
+.SUFFIXES: .c .o
+
 all: $(TARGET)
 
 %.o : %.c
@@ -36,4 +38,7 @@ cachefor: $(OBJ)
 
 clean:
 	-rm -f $(OBJ) $(TARGET)
+
+cscope:
+	cscope -R -b
 
