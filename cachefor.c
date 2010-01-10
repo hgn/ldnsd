@@ -16,315 +16,9 @@
 ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/types.h>
-#include <assert.h>
+#include "cachefor.h"
 
-#include <netinet/in.h>
-#include <netinet/tcp.h>
 
-#include <limits.h>
-#include <netdb.h>
-#include <stdarg.h>
-
-#include "ev.h"
-#include "clist.h"
-
-#ifdef HAVE_RDTSCLL
-# include <linux/timex.h>
-
-# ifndef rdtscll
-# define rdtscll(val) \
-     __asm__ __volatile__("rdtsc" : "=A" (val))
-# endif
-#endif /* HAVE_RDTSCLL */
-
-#undef __always_inline
-#if __GNUC_PREREQ (3,2)
-# define __always_inline __inline __attribute__ ((__always_inline__))
-#else
-# define __always_inline __inline
-#endif
-
-#ifndef ULLONG_MAX
-# define ULLONG_MAX 18446744073709551615ULL
-#endif
-
-#define min(x,y) ({			\
-	typeof(x) _x = (x);		\
-	typeof(y) _y = (y);		\
-	(void) (&_x == &_y);	\
-	_x < _y ? _x : _y; })
-
-#define max(x,y) ({			\
-	typeof(x) _x = (x);		\
-	typeof(y) _y = (y);		\
-	(void) (&_x == &_y);	\
-	_x > _y ? _x : _y; })
-
-#define TIME_GT(x,y) (x->tv_sec > y->tv_sec || (x->tv_sec == y->tv_sec && x->tv_usec > y->tv_usec))
-#define TIME_LT(x,y) (x->tv_sec < y->tv_sec || (x->tv_sec == y->tv_sec && x->tv_usec < y->tv_usec))
-
-#if !defined likely && !defined unlikely
-# define likely(x)   __builtin_expect(!!(x), 1)
-# define unlikely(x) __builtin_expect(!!(x), 0)
-#endif
-
-#define err_msg(format, args...) \
-	do { \
-		x_err_ret(__FILE__, __LINE__,  format , ## args); \
-	} while (0)
-
-#define err_sys(format, args...) \
-	do { \
-		x_err_sys(__FILE__, __LINE__,  format , ## args); \
-	} while (0)
-
-#define err_sys_die(exitcode, format, args...) \
-	do { \
-		x_err_sys(__FILE__, __LINE__, format , ## args); \
-		exit( exitcode ); \
-	} while (0)
-
-#define err_msg_die(exitcode, format, args...) \
-	do { \
-		x_err_ret(__FILE__, __LINE__,  format , ## args); \
-		exit( exitcode ); \
-	} while (0)
-
-#define	pr_debug(format, args...) \
-	do { \
-		if (DEBUG) \
-			msg(format, ##args); \
-	} while (0)
-
-#define	EXIT_OK         EXIT_SUCCESS
-#define	EXIT_FAILMEM    1
-#define	EXIT_FAILOPT    2
-#define	EXIT_FAILMISC   3
-#define	EXIT_FAILNET    4
-#define	EXIT_FAILHEADER 6
-#define	EXIT_FAILEVENT  7
-#define	EXIT_FAILINT    8 /* INTernal error */
-
-/* determine the size of an array */
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
-#define SUCCESS 0
-#define FAILURE -1
-
-#define	DEFAULT_LISTEN_PORT "6666"
-
-#define	RANDPOOLSRC "/dev/urandom"
-
-#define	MAXERRMSG 1024
-
-enum ns_status {
-	NS_STATUS_NEW = 1,
-	NS_STATUS_ALIVE,
-	NS_STATUS_DEAD,
-};
-
-struct nameserver {
-	int socket; /* a connected UDP socket */
-	struct sockaddr_storage address;
-	enum ns_status status;
-	struct ev_entry *timeout;
-};
-
-struct dns_sub_question {
-	uint16_t type;
-	uint16_t class;
-	char *name;
-};
-
-/* a incoming request from a resolver */
-struct dns_request {
-	char *packet;
-	size_t len;
-
-	/* caller origin */
-	struct sockaddr_storage src_ss;
-	socklen_t src_ss_len;
-
-	/* request intrinsic values */
-	uint16_t id;
-	uint16_t flags;
-	uint16_t questions;
-	uint16_t answers;
-	uint16_t authority;
-	uint16_t additional;
-
-	struct dns_sub_question **dns_sub_question;
-
-	unsigned type; /* A, AAAA, PTR */
-	struct nameserver *ns; /* a pointer to the used nameserver */
-};
-
-struct cachefor {
-	struct dns_request pending_dns_requests;
-	struct dns_request processed_dns_requests;
-};
-
-struct ev *ev_hndl;
-struct cachefor *cachefor;
-
-static int subtime(struct timeval *op1, struct timeval *op2,
-		struct timeval *result)
-{
-        int borrow = 0, sign = 0;
-        struct timeval *temp_time;
-
-        if (TIME_LT(op1, op2)) {
-                temp_time = op1;
-                op1  = op2;
-                op2  = temp_time;
-                sign = 1;
-        }
-
-        if (op1->tv_usec >= op2->tv_usec) {
-                result->tv_usec = op1->tv_usec-op2->tv_usec;
-        } else {
-                result->tv_usec = (op1->tv_usec + 1000000) - op2->tv_usec;
-                borrow = 1;
-        }
-        result->tv_sec = (op1->tv_sec-op2->tv_sec) - borrow;
-
-        return sign;
-}
-
-void
-msg(const char *format, ...)
-{
-	va_list ap;
-	struct timeval tv;
-
-	gettimeofday(&tv, NULL);
-	fprintf(stderr, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
-
-	 va_start(ap, format);
-	 vfprintf(stderr, format, ap);
-	 va_end(ap);
-
-	 fputs("\n", stderr);
-}
-
-
-static void err_doit(int sys_error, const char *file,
-		const int line_no, const char *fmt, va_list ap)
-{
-	int	errno_save;
-	char buf[MAXERRMSG];
-
-	errno_save = errno;
-
-	vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
-	if (sys_error) {
-		size_t len = strlen(buf);
-		snprintf(buf + len,  sizeof buf - len, " (%s)", strerror(errno_save));
-	}
-
-	fprintf(stderr, "ERROR [%s:%d]: %s\n", file, line_no, buf);
-	fflush(NULL);
-
-	errno = errno_save;
-}
-
-void x_err_ret(const char *file, int line_no, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	err_doit(0, file, line_no, fmt, ap);
-	va_end(ap);
-	return;
-}
-
-
-void x_err_sys(const char *file, int line_no, const char *fmt, ...)
-{
-	va_list		ap;
-
-	va_start(ap, fmt);
-	err_doit(1, file, line_no, fmt, ap);
-	va_end(ap);
-}
-
-
-static void * xmalloc(size_t size)
-{
-	void *ptr = malloc(size);
-	if (!ptr)
-		err_msg_die(EXIT_FAILMEM, "Out of mem: %s!\n", strerror(errno));
-	return ptr;
-}
-
-static void* xzalloc(size_t size)
-{
-	void *ptr = xmalloc(size);
-	memset(ptr, 0, size);
-	return ptr;
-}
-
-static void xsetsockopt(int s, int level, int optname,
-		const void *optval, socklen_t optlen, const char *str)
-{
-	int ret = setsockopt(s, level, optname, optval, optlen);
-	if (ret)
-		err_sys_die(EXIT_FAILNET, "Can't set socketoption %s", str);
-}
-
-static int xsnprintf(char *str, size_t size, const char *format, ...)
-{
-	va_list ap;
-	int len;
-
-	va_start(ap, format);
-	len = vsnprintf(str, size, format, ap);
-	va_end(ap);
-        if (len < 0 || ((size_t)len) >= size)
-		err_msg_die(EXIT_FAILINT, "buflen %u not sufficient (ret %d)",
-								size, len);
-	return len;
-}
-
-
-static void xfstat(int filedes, struct stat *buf, const char *s)
-{
-	if (fstat(filedes, buf))
-		err_sys_die(EXIT_FAILMISC, "Can't fstat file %s", s);
-}
-
-
-static void xpipe(int filedes[2])
-{
-	if (pipe(filedes))
-		err_sys_die(EXIT_FAILMISC, "Can't create pipe");
-}
-
-
-static int nodelay(int fd, int flag)
-{
-	int ret = 0; socklen_t ret_size;
-
-	if (getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &ret, &ret_size) < 0)
-		return -1;
-
-	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0)
-		return -1;
-
-	return ret;
-}
 
 static int initiate_seed(void)
 {
@@ -351,20 +45,6 @@ static int initiate_seed(void)
 	close(rand_fd);
 
 	return SUCCESS;
-}
-
-static void xgetaddrinfo(const char *node, const char *service,
-		struct addrinfo *hints, struct addrinfo **res)
-{
-	int ret;
-
-	ret = getaddrinfo(node, service, hints, res);
-	if (ret != 0) {
-		err_msg_die(EXIT_FAILNET, "Call to getaddrinfo() failed: %s!\n",
-				(ret == EAI_SYSTEM) ?  strerror(errno) : gai_strerror(ret));
-	}
-
-	return;
 }
 
 
@@ -466,13 +146,10 @@ static int get16(const char * data, size_t idx, size_t max, uint16_t *ret)
 	return 2;
 }
 
-static int enqueue_request(struct cachefor *cf, struct dns_request *dns_request)
+static int enqueue_request(struct dns_request *dns_request)
 {
-	return SUCCESS;
-}
+	(void) dns_request;
 
-static int process_pending_request(struct cachefor *cf)
-{
 	return SUCCESS;
 }
 
@@ -590,7 +267,6 @@ static void process_dns_query(const char *packet, const size_t len,
 #define	MAX_DNS_NAME 256
 
 	for (j = 0; j < dr->questions; j++) {
-		uint16_t type, class;
 		struct dns_sub_question *dnssq;
 		char name[MAX_DNS_NAME];
 
@@ -623,7 +299,7 @@ static void process_dns_query(const char *packet, const size_t len,
 	}
 
 	/* now we do the actual query */
-	ret = enqueue_request(cachefor, dr);
+	ret = enqueue_request(dr);
 	if (ret != SUCCESS) {
 		err_msg("Cannot enqueue request in active queue");
 		return;
@@ -632,12 +308,17 @@ static void process_dns_query(const char *packet, const size_t len,
 
 #define	MAX_PACKET_LEN 2048
 
+/* if a incoming client request is coming then this
+ * function is called */
 static void incoming_request(int fd, int what, void *data)
 {
 	ssize_t rc;
 	char packet[MAX_PACKET_LEN];
 	struct sockaddr_storage ss;
 	socklen_t ss_len = sizeof(struct sockaddr_storage);
+
+	(void) what;
+	(void) data;
 
 	pr_debug("incoming DNS request");
 
@@ -651,7 +332,7 @@ static void incoming_request(int fd, int what, void *data)
 	process_dns_query(packet, rc, &ss, ss_len);
 }
 
-static int ev_add_server_socket(int fd)
+static int ev_add_server_socket(struct ctx *ctx, int fd)
 {
 	int ret;
 	struct ev_entry *ev_entry;
@@ -668,7 +349,7 @@ static int ev_add_server_socket(int fd)
 		return FAILURE;
 	}
 
-	ret = ev_add(ev_hndl, ev_entry);
+	ret = ev_add(ctx->ev_hndl, ev_entry);
 	if (ret != EV_SUCCESS) {
 		err_msg("Cannot add listening socke to the event handling abstraction");
 		return FAILURE;
@@ -677,50 +358,82 @@ static int ev_add_server_socket(int fd)
 	return SUCCESS;
 }
 
-struct cachefor *init_cachefor(void)
+
+struct ctx *alloc_ctx(void)
 {
-	return xzalloc(sizeof(struct cachefor));
+	return xzalloc(sizeof(struct ctx));
 }
 
-free_cachefor(struct cachefor *c)
+
+void free_ctx(struct ctx *c)
 {
 	free(c); c = NULL;
 }
+
+/* default to google ns */
+#define	DEFAULT_NS "8.8.8.8"
+#define	DEFAULT_NS_PORT "53"
 
 
 int main(void)
 {
 	int ret, server_socket, flags = 0;
+	struct ctx *ctx;
 
 	fprintf(stdout, "cachefor - a lighweight caching and forwarding DNS server (C) 2009\n");
-
-	ev_hndl = ev_init_hdntl();
-
-	cachefor = init_cachefor();
 
 	ret = initiate_seed();
 	if (ret == FAILURE) {
 		err_msg("PRNG cannot be initialized satisfying (fallback to time(3) and getpid(3))");
 	}
 
+	ctx = alloc_ctx();
+
+	ctx->ev_hndl = ev_init_hdntl();
+
+	ret = nameserver_init(ctx);
+	if (ret == FAILURE) {
+		err_msg_die(EXIT_FAILMISC, "cannot initialize nameserver context");
+	}
+
+	ret = nameserver_add(ctx, DEFAULT_NS, DEFAULT_NS_PORT);
+	if (ret != SUCCESS) {
+		err_msg_die(EXIT_FAILMISC, "cannot add default nameserver: %s", DEFAULT_NS);
+	}
+
+	ret = adns_request_init(ctx);
+	if (ret != SUCCESS) {
+		err_msg_die(EXIT_FAILMISC,
+				"failure in initialize process of server side request structure");
+	}
+
+	ret = active_dns_request_set(ctx, "www.google.de", DNS_TYPE_A, DNS_CLASS_INET);
+	if (ret != SUCCESS) {
+		err_msg("cannot set active DNS request");
+	}
+
+
+
+
+
+
 	server_socket = init_server_socket(AF_INET, SOCK_DGRAM, 0, DEFAULT_LISTEN_PORT);
 
-	ret = ev_add_server_socket(server_socket);
+	ret = ev_add_server_socket(ctx, server_socket);
 	if (ret != SUCCESS) {
 		err_msg("Cannot initialize server event handling");
 		fini_server_socket(server_socket);
-		ev_free_hndl(ev_hndl);
-		free_cachefor(cachefor);
+		ev_free_hndl(ctx->ev_hndl);
 		return EXIT_FAILEVENT;
 	}
 
-	ev_loop(ev_hndl, flags);
+	ev_loop(ctx->ev_hndl, flags);
 
 	fini_server_socket(server_socket);
 
-	ev_free_hndl(ev_hndl);
+	ev_free_hndl(ctx->ev_hndl);
 
-	free_cachefor(cachefor);
+	free_ctx(ctx);
 
 	return EXIT_SUCCESS;
 }

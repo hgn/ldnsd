@@ -59,8 +59,8 @@ list_destroy(struct list *list)
 }
 
 
-int
-list_insert(struct list *list, void *data)
+/* return SUCCESS or FAILURE */
+int list_insert(struct list *list, void *data)
 {
 	int ret;
 	void *temp = data;
