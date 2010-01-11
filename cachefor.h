@@ -229,6 +229,9 @@ struct ctx {
 	struct list *nameserver_list;
 	struct opts opts;
 	struct list *active_request_list;
+
+	/* passive side (towards the clients) */
+	int client_server_socket;
 };
 
 /* see http://www.ces.clemson.edu/linux/ipw2200_averages.shtml
@@ -270,6 +273,10 @@ int nameserver_init(struct ctx *);
 /* server_side.c */
 int adns_request_init(struct ctx *);
 int active_dns_request_set(const struct ctx *, const char *, int, int);
+
+/* client_side.c */
+void fini_server_socket(int);
+int init_client_side(struct ctx *);
 
 #endif /* CACHEFOR_H */
 

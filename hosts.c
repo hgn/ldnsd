@@ -188,6 +188,11 @@ int hosts_info_get_by_name(const char *filename,
 int hosts_info_get_by_address(const char *filename,
 	struct sockaddr_storage *address, socklen_t address_len, struct hosts_info **res)
 {
+	(void) filename;
+	(void) address;
+	(void) address_len;
+	(void) res;
+
 	return FAILURE;
 }
 

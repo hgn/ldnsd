@@ -2,7 +2,15 @@ EPOLL :=1
 
 DEBUG_BUILD := testing
 
-OBJ := ev.o cachefor.o clist.o utils.o nameserver.o server_side.o hosts.o
+OBJ := ev.o \
+			 cachefor.o \
+			 clist.o \
+			 utils.o \
+			 nameserver.o \
+			 server_side.o \
+			 client_side.o \
+			 hosts.o
+
 TARGET := cachefor
 
 LIBS   := -lrt  # for clock_gettime(2)
