@@ -2,7 +2,7 @@ EPOLL :=1
 
 DEBUG_BUILD := testing
 
-OBJ := ev.o cachefor.o clist.o utils.o nameserver.o server_side.o
+OBJ := ev.o cachefor.o clist.o utils.o nameserver.o server_side.o hosts.o
 TARGET := cachefor
 
 LIBS   := -lrt  # for clock_gettime(2)
@@ -30,7 +30,7 @@ endif
 
 all: $(TARGET)
 
-%.o : %.c cachefor.h
+%.o : %.c cachefor.h hosts.h
 	$(CC) -c $(CFLAGS) $(EXTRA_CFLAGS) $(CPPFLAGS) $< -o $@
 
 cachefor: $(OBJ)

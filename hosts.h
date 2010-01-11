@@ -16,9 +16,29 @@
 ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#include "cachefor.h"
+#ifndef XHOSTS_H
+#define	XHOSTS_H
 
+#include <sys/socket.h> /* sockaddr_storage */
 
+enum host_info_type {
+	HOST_INFO_TYPE_DOMAIN = 1,
+	HOST_INFO_TYPE_ALIAS,
+};
 
+struct hosts_info {
+	char *name;
+	int family;
+	struct sockaddr_storage addr;
+	socklen_t addr_len;
+	char *addr_str;
+	int type;
+	struct hosts_info *next;
+};
 
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */
+int hosts_info_get_by_address(const char *, struct sockaddr_storage *, socklen_t, struct hosts_info **);
+int hosts_info_get_by_name(const char *, const char *, size_t, struct hosts_info **);
+void hosts_info_free(struct hosts_info *);
+const char *hosts_info_strerror(int);
+
+#endif /* XHOSTS_H */
