@@ -122,6 +122,7 @@ void dns_request_free(struct dns_request *dr)
 
 	assert(dr);
 
+	/* a dns_request contains at least one question entry */
 	for (j = 0; j < dr->questions; j++) {
 		free(dr->dns_sub_question[j]->name);
 		free(dr->dns_sub_question[j]);
@@ -206,6 +207,94 @@ static int get_name(const char *data, size_t idx, size_t max,
 	}
 }
 
+/* see http://en.wikipedia.org/wiki/List_of_DNS_record_types */
+#define	TYPE_A   1
+#define	TYPE_NS  2
+#define	TYPE_MD  3
+#define	TYPE_MF 4
+#define	TYPE_CNAME 5
+#define	TYPE_SOA 6
+#define	TYPE_MB  7
+#define	TYPE_MG 8
+#define	TYPE_MR 9
+#define	TYPE_NULL 10
+#define	TYPE_WKS 11
+#define	TYPE_PTR 12
+#define	TYPE_HINFO 13
+#define	TYPE_MINFO 14
+#define	TYPE_MX 15
+#define	TYPE_TXT 16
+
+#define	TYPE_AAAA	28
+#define	TYPE_AFSDB	18
+#define	TYPE_CERT	37
+#define	TYPE_DHCID	49
+#define	TYPE_DLV	32769
+#define	TYPE_DNAME	39
+#define	TYPE_DNSKEY		48
+#define	TYPE_DS		43
+#define	TYPE_HIP	55
+#define	TYPE_IPSECKEY	45
+#define	TYPE_KEY	25
+#define	TYPE_LOC	29
+#define	TYPE_NAPTR	35
+#define	TYPE_NSEC	47
+#define	TYPE_NSEC3	50
+#define	TYPE_NSEC3PARAM		51
+#define	TYPE_RRSIG	46
+#define	TYPE_SIG	24
+#define	TYPE_SPF	99
+#define	TYPE_SRV	33
+#define	TYPE_SSHFP	44
+#define	TYPE_TA		32768
+#define	TYPE_TKEY	249
+#define	TYPE_TSIG	250
+
+/* not supported */
+#if 0
+#define	TYPE_AXFR	252
+#define	TYPE_IXFR	251
+#define	TYPE_OPT	41
+#endif
+
+
+static int is_valid_type(uint16_t type)
+{
+	switch (type) {
+		case TYPE_A: case TYPE_NS: case TYPE_MD: case TYPE_MF:
+		case TYPE_CNAME: case TYPE_SOA: case TYPE_MB: case TYPE_MG:
+		case TYPE_MR: case TYPE_NULL: case TYPE_WKS: case TYPE_PTR:
+		case TYPE_HINFO: case TYPE_MINFO: case TYPE_MX:
+		case TYPE_TXT: case TYPE_AAAA: case TYPE_AFSDB:
+		case TYPE_CERT: case TYPE_DHCID: case TYPE_DLV:
+		case TYPE_DNAME: case TYPE_DNSKEY: case TYPE_DS: case TYPE_HIP:
+		case TYPE_IPSECKEY: case TYPE_KEY: case TYPE_LOC:
+		case TYPE_NAPTR: case TYPE_NSEC: case TYPE_NSEC3:
+		case TYPE_NSEC3PARAM: case TYPE_RRSIG: case TYPE_SIG:
+		case TYPE_SPF: case TYPE_SRV: case TYPE_SSHFP: case TYPE_TA:
+		case TYPE_TKEY: case TYPE_TSIG:
+			return SUCCESS;
+			break;
+		default:
+			return FAILURE;
+
+	}
+	return FAILURE;
+}
+
+#define	CLASS_INET 1
+
+static int is_valid_class(uint16_t class)
+{
+	switch (class) {
+		case CLASS_INET:
+			return SUCCESS;
+		default:
+			return FAILURE;
+	};
+	return FAILURE;
+}
+
 
 #define	DNS_FLAG_MASK_QUESTION 0x0100
 #define	DNS_FLAG_STANDARD_QUERY 0x7800
@@ -244,8 +333,16 @@ static void process_dns_query(const char *packet, const size_t len,
 		return;
 	}
 
+	if (dr->questions > 1) {
+		err_msg("the current implementation support only DNS request"
+				" with one question - this request contains %d questions"
+				" so i will skip this packet", dr->questions);
+		free(dr);
+		return;
+	}
+
 	/* save caller address */
-	memcpy(&dr->src_ss, ss, sizeof(struct sockaddr_storage));
+	memcpy(&dr->src_ss, ss, sizeof(dr->src_ss));
 	dr->src_ss_len = ss_len;
 
 	dr->dns_sub_question = xzalloc(sizeof(struct dns_sub_question *) * dr->questions);
@@ -261,27 +358,40 @@ static void process_dns_query(const char *packet, const size_t len,
 			err_msg("corrupted name format");
 			return;
 		}
-		i += ii;
+		i = ii;
 
-		pr_debug("parsed name: %s\n", name);
-
+		pr_debug("parsed name: %s (new offset: %d)", name, ii);
 
 		dnssq = xzalloc(sizeof(struct dns_sub_question));
 
 		i += get16(packet, i, len, &dnssq->type);
 		i += get16(packet, i, len, &dnssq->class);
 
+		pr_debug("parsed type: %d", dnssq->type);
+		pr_debug("parsed class: %d", dnssq->class);
+
 		dnssq->name = xzalloc(strlen(name) + 1);
 
 		memcpy(dnssq->name, name, strlen(name) + 1);
 
 		dr->dns_sub_question[j] = dnssq;
-	}
 
-	if (IS_DNS_STANDARD_QUERY(dr->flags)) {
-		pr_debug("only standard queries supportet (flag: 0x%x)\n", dr->flags);
-		/* XXX: send a failure packet back to the host */
-		return;
+		/* XXX: the error check is here to simplify the
+		 * error path to free() the allocated memory */
+		if (is_valid_type(dnssq->type) != SUCCESS ||
+			is_valid_class(dnssq->class) != SUCCESS) {
+			err_msg("parsed type %d or class %d is not valid, i ignore this request",
+					dnssq->type, dnssq->class);
+
+			/* free all allocated memory */
+			for ( ; j >= 0; j--) {
+				free(dr->dns_sub_question[j]->name);
+				free(dr->dns_sub_question[j]);
+			}
+			free(dr->dns_sub_question);
+			free(dr);
+		}
+
 	}
 
 	/* now we do the actual query */
@@ -290,6 +400,9 @@ static void process_dns_query(const char *packet, const size_t len,
 		err_msg("Cannot enqueue request in active queue");
 		return;
 	}
+
+	return; /* SUCCESS */
+
 }
 
 

@@ -97,6 +97,8 @@ int main(void)
 
 	ctx->ev_hndl = ev_init_hdntl();
 
+#if 0
+
 	ret = nameserver_init(ctx);
 	if (ret == FAILURE) {
 		err_msg_die(EXIT_FAILMISC, "cannot initialize nameserver context");
@@ -117,6 +119,8 @@ int main(void)
 	if (ret != SUCCESS) {
 		err_msg("cannot set active DNS request");
 	}
+
+#endif
 
 	ret = init_client_side(ctx);
 	if (ret != SUCCESS) {
