@@ -109,7 +109,26 @@ static int enqueue_request(struct dns_request *dns_request)
 {
 	(void) dns_request;
 
+	/* attach timeout to request */
+
+	/* enqueue request into the global list of requests */
+
 	return SUCCESS;
+}
+
+void dns_request_free(struct dns_request *dr)
+{
+	int j;
+
+	assert(dr);
+
+	for (j = 0; j < dr->questions; j++) {
+		free(dr->dns_sub_question[j]->name);
+		free(dr->dns_sub_question[j]);
+	}
+
+	free(dr->dns_sub_question);
+	free(dr);
 }
 
 
@@ -131,7 +150,7 @@ static int get_name(const char *data, size_t idx, size_t max,
 
 	assert(idx <= max);
 
-	while(666) {
+	while (666) {
 		i += get8(data, i, max, &llen);
 
 		pr_debug("label len: %u", llen);
@@ -199,7 +218,7 @@ static void process_dns_query(const char *packet, const size_t len,
 	int ret, i = 0, ii, j;
 	struct dns_request *dr;
 
-	dr = xzalloc(sizeof(struct dns_request));
+	dr = xzalloc(sizeof(*dr));
 
 	i += get16(packet, i, len, &dr->id);
 	i += get16(packet, i, len, &dr->flags);
@@ -215,6 +234,12 @@ static void process_dns_query(const char *packet, const size_t len,
 	if (!IS_DNS_QUESTION(dr->flags)) {
 		pr_debug("incoming packet is no accepted DNS packet (flags: 0x%x, accepted: 0x%x",
 				dr->flags, DNS_FLAG_MASK_QUESTION);
+		free(dr);
+		return;
+	}
+
+	if (dr->questions < 1) {
+		err_msg("incoming DNS request does not contain a DNS request");
 		free(dr);
 		return;
 	}
