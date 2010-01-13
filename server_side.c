@@ -73,8 +73,16 @@ static struct active_dns_request *adns_request_alloc(void)
 }
 
 
-/* XXX: if this function return FAILURE the loop wrapper will
- * abort - so if you do so you must have a important reason */
+/*
+ * Here we go:
+ * 1. we peek the element of the list (peek == this function ;-)
+ * 2. we sent the request
+ * 3. if the transmission (write) was successful we dequeue
+ *    this element from the waiting_request_list and insert
+ *    it in the inflight container
+ * 4. if the transmission was not successful we stop the
+ *    iterating process and return FAILURE
+ */
 static int process_all_adns_requsts(void *req, void *vctx)
 {
 	int ret;
