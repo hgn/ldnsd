@@ -49,6 +49,8 @@ int internal_request_tx(struct ctx *ctx,
 
 static int adns_list_add(const struct ctx *ctx, struct active_dns_request *adns_request)
 {
+	/* add the new reqest at the end of the list, the impact is
+	 * that previously added requests are executed in a FIFO ordering */
 	return list_insert_tail(ctx->active_request_list, adns_request);
 }
 
