@@ -30,7 +30,7 @@ int internal_request_tx(struct ctx *ctx,
 {
 	ssize_t ret;
 
-	(void)ctx;
+	(void) ctx;
 
 	pr_debug("send active pdu request to nameserver via sendto");
 
@@ -39,12 +39,19 @@ int internal_request_tx(struct ctx *ctx,
 	if (ret == (ssize_t)req->pdu_len)
 		return SUCCESS;
 
-	if (ret < 0)
+	if (ret < 0) {
+		if (errno == EAGAIN) {
+			/* no error, event management framework
+			 * will inform us if the socket is again
+			 * writeable */
+			return SUCCESS;
+		}
 		err_sys("failed to send request PDU to nameserver");
-	else
+		return FAILURE;
+	} else {
 		err_msg("short sendto(2) while transmit the request PDU to the nameserver");
-
-	return FAILURE;
+		return FAILURE;
+	}
 }
 
 static int adns_list_add(const struct ctx *ctx, struct active_dns_request *adns_request)
@@ -66,6 +73,8 @@ static struct active_dns_request *adns_request_alloc(void)
 }
 
 
+/* XXX: if this function return FAILURE the loop wrapper will
+ * abort - so if you do so you must have a important reason */
 static int process_all_adns_requsts(void *req, void *vctx)
 {
 	int ret;
