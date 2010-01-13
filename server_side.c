@@ -49,9 +49,15 @@ int internal_request_tx(struct ctx *ctx,
 
 static int adns_list_add(const struct ctx *ctx, struct active_dns_request *adns_request)
 {
+	if (list_size(ctx->waiting_request_list) > MAX_WAITING_REQUEST_LIST_SIZE) {
+		err_msg("the maximum number of waiting DNS REQUESTS is exhaustet"
+				" no more requests can enqueued, sorry");
+		return FAILURE;
+	}
+
 	/* add the new reqest at the end of the list, the impact is
 	 * that previously added requests are executed in a FIFO ordering */
-	return list_insert_tail(ctx->active_request_list, adns_request);
+	return list_insert_tail(ctx->waiting_request_list, adns_request);
 }
 
 static struct active_dns_request *adns_request_alloc(void)
@@ -86,7 +92,7 @@ static void adns_trigger_resolv(const struct ctx *ctx)
 	/* iterate over the list and send all dns
 	 * request who are in the state of ACTIVE_DNS_REQUEST_NEW
 	 * and ignore request in state ACTIVE_DNS_REQUEST_IN_FLIGHT */
-	ret = list_for_each(ctx->active_request_list, process_all_adns_requsts, (void *)ctx);
+	ret = list_for_each(ctx->waiting_request_list, process_all_adns_requsts, (void *)ctx);
 	if (ret != SUCCESS) {
 		err_msg("failure in iterating over active requst list");
 		return;
@@ -346,7 +352,7 @@ static int adns_request_match(const void *a, const void *b)
 
 int adns_request_init(struct ctx *ctx)
 {
-	ctx->active_request_list = list_create(adns_request_match, adns_request_free);
+	ctx->waiting_request_list = list_create(adns_request_match, adns_request_free);
 	return SUCCESS;
 }
 

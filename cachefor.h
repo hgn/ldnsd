@@ -202,7 +202,17 @@ struct ctx {
 	struct ev *ev_hndl;
 	struct list *nameserver_list;
 	struct opts opts;
-	struct list *active_request_list;
+
+	/* new constructed DNS REQUESTS who are
+	 * waiting for transmission are enqueued in
+	 * a list. As soon as the nameserver socket is
+	 * writeable the list is cleared as long as the
+	 * socket is still writeable.
+	 * The maximum list length is 1024, if this limit
+	 * is reached new request are denied or a negative
+	 * RESPONSE DNS packet is sent back to the originator */
+#define	MAX_WAITING_REQUEST_LIST_SIZE 1024
+	struct list *waiting_request_list;
 
 	/* passive side (towards the clients) */
 	int client_server_socket;
