@@ -25,6 +25,7 @@ struct list {
 struct list *list_create(int (*match)(const void *key1, const void *key2), void (*destroy)(void *data));
 void list_destroy(struct list *list);
 int list_insert(struct list *list, void *data);
+int list_insert_tail(struct list *list, void *data);
 int list_lookup(struct list *list, void **data);
 void *list_lookup_match(struct list *, int (*cmp)(void *, void *), void *);
 int list_for_each(struct list *list, int (*func)(void *data, void *userdata), void *userdata);

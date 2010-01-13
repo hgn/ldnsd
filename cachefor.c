@@ -76,10 +76,6 @@ void free_ctx(struct ctx *c)
 	free(c); c = NULL;
 }
 
-/* default to google ns */
-#define	DEFAULT_NS "8.8.8.8"
-#define	DEFAULT_NS_PORT "53"
-
 
 int main(void)
 {
@@ -97,34 +93,20 @@ int main(void)
 
 	ctx->ev_hndl = ev_init_hdntl();
 
-#if 0
-
-	ret = nameserver_init(ctx);
-	if (ret == FAILURE) {
-		err_msg_die(EXIT_FAILMISC, "cannot initialize nameserver context");
-	}
-
-	ret = nameserver_add(ctx, DEFAULT_NS, DEFAULT_NS_PORT);
+	ret = init_server_side(ctx);
 	if (ret != SUCCESS) {
-		err_msg_die(EXIT_FAILMISC, "cannot add default nameserver: %s", DEFAULT_NS);
+		err_msg_die(EXIT_FAILMISC, "cannot initialize server side");
 	}
-
-	ret = adns_request_init(ctx);
-	if (ret != SUCCESS) {
-		err_msg_die(EXIT_FAILMISC,
-				"failure in initialize process of server side request structure");
-	}
-
-	ret = active_dns_request_set(ctx, "www.google.de", DNS_TYPE_A, DNS_CLASS_INET);
-	if (ret != SUCCESS) {
-		err_msg("cannot set active DNS request");
-	}
-
-#endif
 
 	ret = init_client_side(ctx);
 	if (ret != SUCCESS) {
-		err_msg_die(EXIT_FAILMISC, "cannot initialize server socket");
+		err_msg_die(EXIT_FAILMISC, "cannot initialize client side");
+	}
+
+	// XXX: simple test
+	ret = active_dns_request_set(ctx, "www.google.de", DNS_TYPE_A, DNS_CLASS_INET);
+	if (ret != SUCCESS) {
+		err_msg("cannot set active DNS request");
 	}
 
 	ev_loop(ctx->ev_hndl, flags);

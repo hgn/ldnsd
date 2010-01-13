@@ -278,6 +278,7 @@ int nameserver_init(struct ctx *);
 /* server_side.c */
 int adns_request_init(struct ctx *);
 int active_dns_request_set(const struct ctx *, const char *, int, int);
+int init_server_side(struct ctx *);
 
 /* client_side.c */
 void fini_server_socket(int);

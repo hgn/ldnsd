@@ -92,7 +92,7 @@ static int get8(const char *data, size_t idx, size_t max, uint8_t *ret)
 }
 
 
-static int get16(const char * data, size_t idx, size_t max, uint16_t *ret)
+static int get16(const char *data, size_t idx, size_t max, uint16_t *ret)
 {
 	uint16_t tmp;
 
@@ -107,7 +107,7 @@ static int get16(const char * data, size_t idx, size_t max, uint16_t *ret)
 
 static int enqueue_request(struct dns_request *dns_request)
 {
-	(void) dns_request;
+	assert(dns_request);
 
 	/* attach timeout to request */
 
@@ -337,6 +337,7 @@ static void process_dns_query(struct ctx *ctx, const char *packet, const size_t 
 
 	dr = xzalloc(sizeof(*dr));
 
+	/* splice context to our dns query */
 	dr->ctx = ctx;
 
 	i += get16(packet, i, len, &dr->id);

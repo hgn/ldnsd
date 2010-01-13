@@ -49,7 +49,7 @@ int internal_request_tx(struct ctx *ctx,
 
 static int adns_list_add(const struct ctx *ctx, struct active_dns_request *adns_request)
 {
-	return list_insert(ctx->active_request_list, adns_request);
+	return list_insert_tail(ctx->active_request_list, adns_request);
 }
 
 static struct active_dns_request *adns_request_alloc(void)
@@ -345,6 +345,36 @@ static int adns_request_match(const void *a, const void *b)
 int adns_request_init(struct ctx *ctx)
 {
 	ctx->active_request_list = list_create(adns_request_match, adns_request_free);
+	return SUCCESS;
+}
+
+/* default to google ns */
+#define	DEFAULT_NS "8.8.8.8"
+#define	DEFAULT_NS_PORT "53"
+
+
+int init_server_side(struct ctx *ctx)
+{
+	int ret;
+
+	ret = nameserver_init(ctx);
+	if (ret == FAILURE) {
+		err_msg("cannot initialize nameserver context");
+		return FAILURE;
+	}
+
+	ret = nameserver_add(ctx, DEFAULT_NS, DEFAULT_NS_PORT);
+	if (ret != SUCCESS) {
+		err_msg("cannot add default nameserver: %s", DEFAULT_NS);
+		return FAILURE;
+	}
+
+	ret = adns_request_init(ctx);
+	if (ret != SUCCESS) {
+		err_msg( "failure in initialize process of server side request structure");
+		return FAILURE;
+	}
+
 	return SUCCESS;
 }
 

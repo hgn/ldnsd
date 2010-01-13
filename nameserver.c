@@ -103,6 +103,11 @@ int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port)
 
 	ns = nameserver_alloc();
 
+	ret = ev_set_non_blocking(fd);
+	if (ret != EV_SUCCESS) {
+		err_msg_die(EXIT_FAILNET, "failure to set server socket nonblocking");
+	}
+
 	/* save filedescriptor */
 	ns->socket = fd;
 	memcpy(&ns->address, &ss, sizeof(ns->address));
