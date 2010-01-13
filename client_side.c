@@ -257,6 +257,22 @@ static int get_name(const char *data, size_t idx, size_t max,
 #define	TYPE_OPT	41
 #endif
 
+/* convert the most common types to names */
+static const char *type_to_str(uint16_t type)
+{
+	switch (type) {
+		case TYPE_A:     return "A";
+		case TYPE_AAAA:  return "AAAA";
+		case TYPE_MX:    return "MX";
+		case TYPE_PTR:   return "PTR";
+		case TYPE_SOA:   return "SOA";
+		case TYPE_CNAME: return "CNAME";
+		case TYPE_NS:    return "NS";
+		case TYPE_TXT:   return "TXT";
+		default:         return "UNKNOWN";
+	};
+}
+
 
 static int is_valid_type(uint16_t type)
 {
@@ -282,15 +298,27 @@ static int is_valid_type(uint16_t type)
 	return FAILURE;
 }
 
-#define	CLASS_INET 1
+#define	CLASS_IN 1 /* INET */
+/* not supported */
+#if 0
+#define	CLASS_CS 2 /* CSNET */
+#define	CLASS_CH 3 /* CHAOS */
+#define	CLASS_HS 4 /* Hesiod */
+#endif
+
+static const char *class_to_str(uint16_t class)
+{
+	switch (class) {
+		case CLASS_IN: return "IN";
+		default:       return "UNKNOWN";
+	}
+}
 
 static int is_valid_class(uint16_t class)
 {
 	switch (class) {
-		case CLASS_INET:
-			return SUCCESS;
-		default:
-			return FAILURE;
+		case CLASS_IN: return SUCCESS;
+		default: return FAILURE;
 	};
 	return FAILURE;
 }
@@ -321,7 +349,7 @@ static void process_dns_query(const char *packet, const size_t len,
 			 len, dr->id, dr->flags, dr->questions, dr->answers, dr->authority, dr->additional);
 
 	if (!IS_DNS_QUESTION(dr->flags)) {
-		pr_debug("incoming packet is no accepted DNS packet (flags: 0x%x, accepted: 0x%x",
+		pr_debug("incoming packet is no QUESTION DNS packet (flags: 0x%x, accepted: 0x%x",
 				dr->flags, DNS_FLAG_MASK_QUESTION);
 		free(dr);
 		return;
@@ -339,6 +367,12 @@ static void process_dns_query(const char *packet, const size_t len,
 				" so i will skip this packet", dr->questions);
 		free(dr);
 		return;
+	}
+
+	if (dr->answers > 0 || dr->authority > 0 || dr->additional > 0) {
+		err_msg("the DNS REQUEST comes with unusual additional sections: "
+				"answers: %d, authority: %d, additional: %d. I ignore these "
+				"sections!");
 	}
 
 	/* save caller address */
@@ -367,8 +401,8 @@ static void process_dns_query(const char *packet, const size_t len,
 		i += get16(packet, i, len, &dnssq->type);
 		i += get16(packet, i, len, &dnssq->class);
 
-		pr_debug("parsed type: %d", dnssq->type);
-		pr_debug("parsed class: %d", dnssq->class);
+		pr_debug("parsed type: %s, parsed class: %s",
+				type_to_str(dnssq->type), class_to_str(dnssq->class));
 
 		dnssq->name = xzalloc(strlen(name) + 1);
 
@@ -380,8 +414,8 @@ static void process_dns_query(const char *packet, const size_t len,
 		 * error path to free() the allocated memory */
 		if (is_valid_type(dnssq->type) != SUCCESS ||
 			is_valid_class(dnssq->class) != SUCCESS) {
-			err_msg("parsed type %d or class %d is not valid, i ignore this request",
-					dnssq->type, dnssq->class);
+			err_msg("parsed type %s or class %s is not valid, i ignore this request",
+					type_to_str(dnssq->type), class_to_str(dnssq->class));
 
 			/* free all allocated memory */
 			for ( ; j >= 0; j--) {
