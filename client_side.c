@@ -329,13 +329,15 @@ static int is_valid_class(uint16_t class)
 #define	IS_DNS_QUESTION(x) (x & DNS_FLAG_MASK_QUESTION)
 #define	IS_DNS_STANDARD_QUERY(x) (x & DNS_FLAG_STANDARD_QUERY)
 
-static void process_dns_query(const char *packet, const size_t len,
+static void process_dns_query(struct ctx *ctx, const char *packet, const size_t len,
 		const struct sockaddr_storage *ss, socklen_t ss_len)
 {
 	int ret, i = 0, ii, j;
 	struct dns_request *dr;
 
 	dr = xzalloc(sizeof(*dr));
+
+	dr->ctx = ctx;
 
 	i += get16(packet, i, len, &dr->id);
 	i += get16(packet, i, len, &dr->flags);
@@ -450,9 +452,9 @@ static void incoming_request(int fd, int what, void *data)
 	char packet[MAX_PACKET_LEN];
 	struct sockaddr_storage ss;
 	socklen_t ss_len = sizeof(struct sockaddr_storage);
+	struct ctx *ctx = data;
 
 	(void) what;
-	(void) data;
 
 	pr_debug("incoming DNS request");
 
@@ -463,7 +465,7 @@ static void incoming_request(int fd, int what, void *data)
 		err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
 	}
 
-	process_dns_query(packet, rc, &ss, ss_len);
+	process_dns_query(ctx, packet, rc, &ss, ss_len);
 }
 
 
@@ -478,7 +480,7 @@ static int ev_add_server_socket(struct ctx *ctx, int fd)
 		return FAILURE;
 	}
 
-	ev_entry = ev_entry_new(fd, EV_READ, incoming_request, NULL);
+	ev_entry = ev_entry_new(fd, EV_READ, incoming_request, ctx);
 	if (!ev_entry) {
 		err_msg("Cannot add listening socke to the event handling abstraction");
 		return FAILURE;

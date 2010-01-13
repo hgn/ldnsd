@@ -168,32 +168,6 @@ struct dns_sub_question {
 	char *name;
 };
 
-/* a incoming request from a resolver */
-struct dns_request {
-	char *packet;
-	size_t len;
-
-	/* caller origin */
-	struct sockaddr_storage src_ss;
-	socklen_t src_ss_len;
-
-	/* request intrinsic values */
-	uint16_t id;
-	uint16_t flags;
-	uint16_t questions;
-	uint16_t answers;
-	uint16_t authority;
-	uint16_t additional;
-
-	struct dns_sub_question **dns_sub_question;
-
-	unsigned type; /* A, AAAA, PTR */
-	struct nameserver *ns; /* a pointer to the used nameserver */
-
-	/* the assosiated timeout for this request */
-	struct ev_entry *ev_timeout;
-};
-
 enum active_dns_request_status {
 	ACTIVE_DNS_REQUEST_NEW = 1,
 	ACTIVE_DNS_REQUEST_IN_FLIGHT,
@@ -233,6 +207,37 @@ struct ctx {
 	/* passive side (towards the clients) */
 	int client_server_socket;
 };
+
+/* a incoming request from a resolver */
+struct dns_request {
+
+	/* the correspondent context */
+	struct ctx *ctx;
+
+	char *packet;
+	size_t len;
+
+	/* caller origin */
+	struct sockaddr_storage src_ss;
+	socklen_t src_ss_len;
+
+	/* request intrinsic values */
+	uint16_t id;
+	uint16_t flags;
+	uint16_t questions;
+	uint16_t answers;
+	uint16_t authority;
+	uint16_t additional;
+
+	struct dns_sub_question **dns_sub_question;
+
+	unsigned type; /* A, AAAA, PTR */
+	struct nameserver *ns; /* a pointer to the used nameserver */
+
+	/* the assosiated timeout for this request */
+	struct ev_entry *ev_timeout;
+};
+
 
 /* see http://www.ces.clemson.edu/linux/ipw2200_averages.shtml
  * for a comparision between exponential averaging and RC low
