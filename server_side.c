@@ -25,7 +25,7 @@ static int16_t get_random_id(void)
 
 
 /* send a new request to the server */
-int internal_request_tx(struct ctx *ctx,
+static int internal_request_tx(struct ctx *ctx,
 		struct active_dns_request *req)
 {
 	ssize_t ret;
@@ -421,6 +421,11 @@ static void process_dns_response(struct ctx *ctx, const char *packet, const size
 		const struct sockaddr_storage *ss, socklen_t ss_len)
 {
 	/* some sanity checks first */
+	(void) ctx;
+	(void) packet;
+	(void) len;
+	(void) ss;
+	(void) ss_len;
 }
 
 /* a nameserver send us some data
@@ -432,7 +437,7 @@ static void process_dns_response(struct ctx *ctx, const char *packet, const size
  *    data
  * 5. we call the user provided callback function
  */
-void nameserver_read_event(int fd, int what, void *data)
+static void nameserver_read_event(int fd, int what, void *data)
 {
 	ssize_t rc;
 	char packet[MAX_PACKET_LEN];

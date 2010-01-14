@@ -65,19 +65,19 @@ static void ev_free_hndl(struct ev *ev)
 }
 
 
-struct ctx *alloc_ctx(void)
+static struct ctx *alloc_ctx(void)
 {
 	return xzalloc(sizeof(struct ctx));
 }
 
 
-void free_ctx(struct ctx *c)
+static void free_ctx(struct ctx *c)
 {
 	free(c); c = NULL;
 }
 
 /* XXX: only for debugging purpose */
-int response_cb(struct dns_response *dns_a)
+static int response_cb(struct dns_response *dns_a)
 {
 	(void) dns_a;
 

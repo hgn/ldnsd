@@ -36,7 +36,7 @@ static void nameserver_free(void *ns)
 	free(ns);
 }
 
-const char *ai_family_to_str(int ai_family)
+static const char *ai_family_to_str(int ai_family)
 {
 	switch (ai_family) {
 		case AF_INET:
@@ -78,7 +78,7 @@ static int ev_register_ns_socket(struct ctx *ctx, int fd,
 int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port,
 		void (*cb_read)(int, int, void *))
 {
-	int ret, fd;
+	int ret, fd = -1;
 	struct nameserver *ns;
 	struct addrinfo hosthints, *hostres, *addrtmp;
 	struct sockaddr_storage ss;

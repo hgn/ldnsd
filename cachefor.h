@@ -279,6 +279,31 @@ struct dns_request {
 	struct ev_entry *ev_timeout;
 };
 
+
+struct dns_sub_section {
+	char *name; /* the already restructed label */
+	uint16_t type;
+	uint16_t class;
+};
+
+struct dns_pdu {
+
+	/* request intrinsic values */
+	uint16_t id;
+	uint16_t flags;
+	uint16_t questions;
+	uint16_t answers;
+	uint16_t authority;
+	uint16_t additional;
+
+	/* these are the already parsed sections.
+	 * This means that the label isn't there anymore */
+	struct dns_sub_section **questions_section;
+	struct dns_sub_section **answers_section;
+	struct dns_sub_section **authority_section;
+	struct dns_sub_section **additional_section;
+};
+
 #define	MAX_PACKET_LEN 2048
 
 
@@ -326,6 +351,11 @@ int init_server_side(struct ctx *);
 /* client_side.c */
 void fini_server_socket(int);
 int init_client_side(struct ctx *);
+void dns_request_free(struct dns_request *);
+
+/* pkt_parser.c */
+int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
+void free_dns_subsection(uint16_t, struct dns_sub_section **);
 
 #endif /* CACHEFOR_H */
 
