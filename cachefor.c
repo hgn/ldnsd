@@ -76,6 +76,13 @@ void free_ctx(struct ctx *c)
 	free(c); c = NULL;
 }
 
+/* XXX: only for debugging purpose */
+int response_cb(struct dns_response *dns_a)
+{
+	(void) dns_a;
+
+	return SUCCESS;
+}
 
 int main(void)
 {
@@ -104,7 +111,7 @@ int main(void)
 	}
 
 	// XXX: simple test
-	ret = active_dns_request_set(ctx, "www.google.de", DNS_TYPE_A, DNS_CLASS_INET);
+	ret = active_dns_request_set(ctx, "www.google.de", DNS_TYPE_A, DNS_CLASS_INET, response_cb);
 	if (ret != SUCCESS) {
 		err_msg("cannot set active DNS request");
 	}

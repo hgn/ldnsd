@@ -168,10 +168,32 @@ struct dns_sub_question {
 	char *name;
 };
 
+enum res_err_code {
+	RES_ERROR_NO_ERROR = 0,
+	RES_ERROR_TIMEOUT,
+};
+
+/* the data structure that is exchanged
+ * between the frontend and the backend
+ * and in the case this piece of software
+ * is used as a library the dns_awnser is
+ * passed to the caller */
+struct dns_response {
+
+	/* the err_code contains information if
+	 * a request was successful or not. If not
+	 * then the error code is also encoded here */
+	enum res_err_code err_code;
+	char *pdu;
+	size_t pdu_len;
+};
+
+
 enum active_dns_request_status {
 	ACTIVE_DNS_REQUEST_NEW = 1,
 	ACTIVE_DNS_REQUEST_IN_FLIGHT,
 };
+
 
 /* the dns request wrapper that is transmitted to a nameserver */
 struct active_dns_request {
@@ -191,6 +213,10 @@ struct active_dns_request {
 
 	/* the used nameserver */
 	struct nameserver *ns;
+
+	/* this function is called if the dns request
+	 * was successful or a timeout occurred */
+	int (*cb)(struct dns_response *);
 };
 
 
@@ -213,6 +239,11 @@ struct ctx {
 	 * RESPONSE DNS packet is sent back to the originator */
 #define	MAX_WAITING_REQUEST_LIST_SIZE 1024
 	struct list *waiting_request_list;
+
+	/* this list contains all requests that are already
+	 * transmitted to the nameserver and wait for a DNS
+	 * response packet */
+	struct list *inflight_request_list;
 
 	/* passive side (towards the clients) */
 	int client_server_socket;
@@ -248,6 +279,8 @@ struct dns_request {
 	struct ev_entry *ev_timeout;
 };
 
+#define	MAX_PACKET_LEN 2048
+
 
 /* see http://www.ces.clemson.edu/linux/ipw2200_averages.shtml
  * for a comparision between exponential averaging and RC low
@@ -281,13 +314,13 @@ void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct addrinfo
 char *xstrdup(const char *);
 
 /* nameserver.c */
-int nameserver_add(struct ctx *, const char *, const char *);
+int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
 struct nameserver *nameserver_select(const struct ctx *);
 int nameserver_init(struct ctx *);
 
 /* server_side.c */
 int adns_request_init(struct ctx *);
-int active_dns_request_set(const struct ctx *, const char *, int, int);
+int active_dns_request_set(const struct ctx *, const char *, int, int, int (*cb)(struct dns_response *));
 int init_server_side(struct ctx *);
 
 /* client_side.c */

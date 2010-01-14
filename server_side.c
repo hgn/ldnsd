@@ -44,7 +44,7 @@ int internal_request_tx(struct ctx *ctx,
 			/* no error, event management framework
 			 * will inform us if the socket is again
 			 * writeable */
-			return SUCCESS;
+			return FAILURE;
 		}
 		err_sys("failed to send request PDU to nameserver");
 		return FAILURE;
@@ -73,6 +73,26 @@ static struct active_dns_request *adns_request_alloc(void)
 }
 
 
+static void adns_request_free(void *req)
+{
+	struct active_dns_request *adns_req = req;
+
+	if (adns_req->name)
+		free(adns_req->name);
+
+	if (adns_req->pdu)
+		free(adns_req->pdu);
+
+	free(adns_req);
+}
+
+/* add the new reqest at the end of the list, the impact is
+ * that previously added requests are executed in a FIFO ordering */
+static int req_inflight_list_add(const struct ctx *ctx, struct active_dns_request *adns_request)
+{
+	return list_insert_tail(ctx->inflight_request_list, adns_request);
+}
+
 /*
  * Here we go:
  * 1. we peek the element of the list (peek == this function ;-)
@@ -99,6 +119,29 @@ static int process_all_adns_requsts(void *req, void *vctx)
 		err_msg("failure in transmission process");
 	}
 
+	pr_debug("successful transmit a DNS REQUEST to a nameserver");
+
+	/* ok, the DNS request is on the wire, fine
+	 * we now took the req from the list and
+	 * add it to the inflight list */
+	ret = list_remove(ctx->waiting_request_list, &req);
+	if (ret != SUCCESS) {
+		err_msg_die(EXIT_FAILINT, "critical error: a element is not in "
+				"the list, even though it should be there - implemenation error");
+		return FAILURE;
+	}
+
+	pr_debug("dequeue successful transmitted request from the waiting_request_list");
+
+	ret = req_inflight_list_add(ctx, req);
+	if (ret != SUCCESS) {
+		err_msg("cannot add DNS REQUEST to inflight list, dropping this packet");
+		adns_request_free(req);
+		return FAILURE;
+	}
+
+	pr_debug("queued request to the inflight queue");
+
 	return SUCCESS;
 }
 
@@ -118,22 +161,7 @@ static void adns_trigger_resolv(const struct ctx *ctx)
 	return;
 }
 
-static void adns_request_free(void *req)
-{
-	struct active_dns_request *adns_req = req;
 
-	if (adns_req->name)
-		free(adns_req->name);
-
-	if (adns_req->pdu)
-		free(adns_req->pdu);
-
-	free(adns_req);
-
-}
-
-
-/* FIXME: stollen! */
 /* This is an inefficient representation; only use it via the dnslabel_table_*
  * functions, so that is can be safely replaced with something smarter later. */
 #define MAX_LABELS 128
@@ -253,6 +281,8 @@ dnsname_to_labels(uint8_t *const buf, size_t buf_len, off_t j,
  overflow:
 	return (-2);
 }
+
+
 static int
 evdns_request_data_build(const char *const name, const int name_len,
     const uint16_t trans_id, const uint16_t type, const uint16_t class,
@@ -308,14 +338,16 @@ static int internal_build_dns_request(const struct ctx *ctx,
 	return SUCCESS;
 }
 
+
 /* enqueue the query into the active queue */
 int active_dns_request_set(const struct ctx *ctx,
-		const char *str, int type, int class)
+		const char *q_str, int type, int class,
+		int (*cb)(struct dns_response *))
 {
 	int ret;
 	struct active_dns_request *adns_request;
 
-	assert(str);
+	assert(q_str);
 
 	/* 1. search local cache first */
 
@@ -326,6 +358,10 @@ int active_dns_request_set(const struct ctx *ctx,
 
 	adns_request = adns_request_alloc();
 
+	/* cb is called when the nameserver answered or
+	 * a timeout occured */
+	adns_request->cb = cb;
+
 	adns_request->ns = nameserver_select(ctx);
 	if (!adns_request->ns) {
 		err_msg("cannot select a nameserver, giving up");
@@ -334,7 +370,7 @@ int active_dns_request_set(const struct ctx *ctx,
 	}
 	adns_request->status = ACTIVE_DNS_REQUEST_NEW;
 
-	ret = internal_build_dns_request(ctx, adns_request, str, type, class);
+	ret = internal_build_dns_request(ctx, adns_request, q_str, type, class);
 	if (ret != SUCCESS) {
 		adns_request_free(adns_request);
 		return FAILURE;
@@ -352,6 +388,11 @@ int active_dns_request_set(const struct ctx *ctx,
 	return SUCCESS;
 }
 
+
+/* danger in robinson: this function must return boolean
+ * true if both items matches or false if not - return
+ * the internal SUCCESS or FAILURE does not fit these
+ * requirement! ;) */
 static int adns_request_match(const void *a, const void *b)
 {
 	const struct active_dns_request *adns_req1, *adns_req2;
@@ -360,23 +401,66 @@ static int adns_request_match(const void *a, const void *b)
 	adns_req2 = b;
 
 	/* FIXME: add values checked */
-	if (adns_req1->type == adns_req2->type)
-		return SUCCESS;
+	if (adns_req1->type  == adns_req2->type  &&
+		adns_req1->class == adns_req2->class &&
+		adns_req1->id    == adns_req2->id)
+		return 1;
 
-	return FAILURE;
+	return 0;
 }
 
 
 int adns_request_init(struct ctx *ctx)
 {
-	ctx->waiting_request_list = list_create(adns_request_match, adns_request_free);
+	ctx->waiting_request_list  = list_create(adns_request_match, adns_request_free);
+	ctx->inflight_request_list = list_create(adns_request_match, adns_request_free);
 	return SUCCESS;
 }
+
+static void process_dns_response(struct ctx *ctx, const char *packet, const size_t len,
+		const struct sockaddr_storage *ss, socklen_t ss_len)
+{
+	/* some sanity checks first */
+}
+
+/* a nameserver send us some data
+ * 1. we iterate until no more data is queued
+ * 2. we do some trivial error checks
+ * 3. if we found a entry we delete the entry from
+ *    the inflight list
+ * 4. we call caching routine to cache the actual
+ *    data
+ * 5. we call the user provided callback function
+ */
+void nameserver_read_event(int fd, int what, void *data)
+{
+	ssize_t rc;
+	char packet[MAX_PACKET_LEN];
+	struct sockaddr_storage ss;
+	socklen_t ss_len = sizeof(struct sockaddr_storage);
+	struct ctx *ctx = data;
+
+	/* FIXME: check for error conditions */
+	(void) what;
+
+	while (1) {
+
+		rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr*) &ss, &ss_len);
+		if (rc < 0) {
+			if (errno == EAGAIN)
+				return;
+			err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
+		}
+
+		pr_debug("incoming DNS response of size %d byte", rc);
+		process_dns_response(ctx, packet, rc, &ss, ss_len);
+	}
+}
+
 
 /* default to google ns */
 #define	DEFAULT_NS "8.8.8.8"
 #define	DEFAULT_NS_PORT "53"
-
 
 int init_server_side(struct ctx *ctx)
 {
@@ -388,7 +472,7 @@ int init_server_side(struct ctx *ctx)
 		return FAILURE;
 	}
 
-	ret = nameserver_add(ctx, DEFAULT_NS, DEFAULT_NS_PORT);
+	ret = nameserver_add(ctx, DEFAULT_NS, DEFAULT_NS_PORT, nameserver_read_event);
 	if (ret != SUCCESS) {
 		err_msg("cannot add default nameserver: %s", DEFAULT_NS);
 		return FAILURE;

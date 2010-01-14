@@ -52,8 +52,31 @@ const char *ai_family_to_str(int ai_family)
 }
 
 
+static int ev_register_ns_socket(struct ctx *ctx, int fd,
+		void (*cb)(int, int, void *))
+{
+	int ret;
+	struct ev_entry *ev_entry;
+
+	ev_entry = ev_entry_new(fd, EV_READ, cb, ctx);
+	if (!ev_entry) {
+		err_msg("Cannot add listening socke to the event handling abstraction");
+		return FAILURE;
+	}
+
+	ret = ev_add(ctx->ev_hndl, ev_entry);
+	if (ret != EV_SUCCESS) {
+		err_msg("Cannot add listening socke to the event handling abstraction");
+		return FAILURE;
+	}
+
+	return SUCCESS;
+}
+
+
 /* adds a nameserver to the global list of nameservers */
-int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port)
+int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port,
+		void (*cb_read)(int, int, void *))
 {
 	int ret, fd;
 	struct nameserver *ns;
@@ -114,6 +137,13 @@ int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port)
 	ns->address_len = ss_len;
 
 	ns->status = NS_STATUS_NEW;
+
+	/* register at our event handling machinery */
+	ret = ev_register_ns_socket(ctx, fd, cb_read);
+	if (ret != SUCCESS) {
+		err_msg("cannot register nameserver socket at the event handling machinery");
+		return FAILURE;
+	}
 
 	ret = list_insert(ctx->nameserver_list, ns);
 	if (ret != SUCCESS) {

@@ -150,8 +150,9 @@ list_remove(struct list *list, void **data)
 
 	for (element = list_head(list); element != NULL; element = list_next(element)) {
 
-		if (list->match(*data, list_data(element)))
+		if (list->match(*data, list_data(element))) {
 			return list_rem_next(list, prev, data);
+		}
 
 		prev = element;
 	}
@@ -189,8 +190,7 @@ list_ins_next(struct list *list, struct list_element *element, const void *data)
 }
 
 
-int
-list_rem_next(struct list *list, struct list_element *element, void **data)
+int list_rem_next(struct list *list, struct list_element *element, void **data)
 {
 	struct list_element *old_element = NULL;
 

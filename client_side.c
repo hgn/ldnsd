@@ -443,8 +443,6 @@ static void process_dns_query(struct ctx *ctx, const char *packet, const size_t 
 }
 
 
-#define	MAX_PACKET_LEN 2048
-
 /* if a incoming client request is coming then this
  * function is called */
 static void incoming_request(int fd, int what, void *data)
