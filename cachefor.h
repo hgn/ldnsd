@@ -356,6 +356,7 @@ void dns_request_free(struct dns_request *);
 /* pkt_parser.c */
 int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
 void free_dns_subsection(uint16_t, struct dns_sub_section **);
+void free_dns_pdu(struct dns_pdu *);
 
 #endif /* CACHEFOR_H */
 

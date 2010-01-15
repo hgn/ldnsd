@@ -254,6 +254,17 @@ void free_dns_subsection(uint16_t no, struct dns_sub_section **dss)
 	free(dss);
 }
 
+
+void free_dns_pdu(struct dns_pdu *dr)
+{
+	/* free sections first */
+	free_dns_subsection(dr->questions, dr->questions_section);
+	free_dns_subsection(dr->answers, dr->answers_section);
+	free_dns_subsection(dr->authority, dr->authority_section);
+	free_dns_subsection(dr->additional, dr->additional_section);
+	free(dr);
+}
+
 #define	MAX_DNS_NAME 256
 
 
@@ -382,6 +393,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 				}
 				free(dr->answers_section);
 				free(dr);
+				free_dns_subsection(dr->questions, dr->questions_section);
 				return FAILURE;
 			}
 		}
@@ -433,6 +445,8 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 				}
 				free(dr->authority_section);
 				free(dr);
+				free_dns_subsection(dr->questions, dr->questions_section);
+				free_dns_subsection(dr->answers, dr->answers_section);
 				return FAILURE;
 			}
 		}
@@ -484,6 +498,9 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 				}
 				free(dr->additional_section);
 				free(dr);
+				free_dns_subsection(dr->questions, dr->questions_section);
+				free_dns_subsection(dr->answers, dr->answers_section);
+				free_dns_subsection(dr->authority, dr->authority_section);
 				return FAILURE;
 			}
 		}
