@@ -167,18 +167,25 @@ static void incoming_request(int fd, int what, void *data)
 	socklen_t ss_len = sizeof(struct sockaddr_storage);
 	struct ctx *ctx = data;
 
-	(void) what;
-
-	pr_debug("incoming DNS request");
-
-	rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr*) &ss, &ss_len);
-	if (rc < 0) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return;
-		err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
+	if (what != EV_READ) {
+		err_msg("server socket event handling returned %d"
+				", but a %d (EV_READ) - was required. I"
+				" ignore this event", what, EV_READ);
+		return;
 	}
 
-	process_dns_query(ctx, packet, rc, &ss, ss_len);
+	while (666) { /* iterate until the rx is empty */
+		rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr*) &ss, &ss_len);
+		if (rc < 0) {
+			if (errno == EAGAIN)
+				return;
+			err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
+		}
+
+		pr_debug("incoming DNS request");
+
+		process_dns_query(ctx, packet, rc, &ss, ss_len);
+	}
 }
 
 
