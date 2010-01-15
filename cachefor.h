@@ -280,6 +280,12 @@ struct dns_request {
 };
 
 
+#define	DNS_FLAG_MASK_QUESTION 0x0100
+#define	DNS_FLAG_STANDARD_QUERY 0x7800
+#define	IS_DNS_QUESTION(x) (x & DNS_FLAG_MASK_QUESTION)
+#define	IS_DNS_STANDARD_QUERY(x) (x & DNS_FLAG_STANDARD_QUERY)
+
+
 struct dns_sub_section {
 	char *name; /* the already restructed label */
 	uint16_t type;
@@ -302,6 +308,23 @@ struct dns_pdu {
 	struct dns_sub_section **answers_section;
 	struct dns_sub_section **authority_section;
 	struct dns_sub_section **additional_section;
+};
+
+struct dns_pdu_hndl {
+
+	/* the correspondent context */
+	struct ctx *ctx;
+
+	char *packet;
+	size_t len;
+
+	struct dns_pdu *dns_pdu;
+
+	/* caller origin */
+	struct sockaddr_storage src_ss;
+	socklen_t src_ss_len;
+
+	struct nameserver *ns; /* a pointer to the used nameserver */
 };
 
 #define	MAX_PACKET_LEN 2048
@@ -351,7 +374,6 @@ int init_server_side(struct ctx *);
 /* client_side.c */
 void fini_server_socket(int);
 int init_client_side(struct ctx *);
-void dns_request_free(struct dns_request *);
 
 /* pkt_parser.c */
 int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);

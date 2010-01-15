@@ -79,35 +79,9 @@ void fini_server_socket(int fd)
 }
 
 
-static int get8(const char *data, size_t idx, size_t max, uint8_t *ret)
+static int enqueue_request(struct dns_pdu_hndl *dns_pdu_hndl)
 {
-	uint16_t tmp;
-
-	if (idx + 1 > max)
-		return FAILURE;
-
-	memcpy(&tmp, data + idx, 1);
-	*ret = tmp;
-	return 1;
-}
-
-
-static int get16(const char *data, size_t idx, size_t max, uint16_t *ret)
-{
-	uint16_t tmp;
-
-	if (idx + 2 > max)
-		return FAILURE;
-
-	memcpy(&tmp, data + idx, 2);
-	*ret = ntohs(tmp);
-	return 2;
-}
-
-
-static int enqueue_request(struct dns_request *dns_request)
-{
-	assert(dns_request);
+	assert(dns_pdu_hndl);
 
 	/* attach timeout to request */
 
@@ -116,323 +90,63 @@ static int enqueue_request(struct dns_request *dns_request)
 	return SUCCESS;
 }
 
-void dns_request_free(struct dns_request *dr)
-{
-	int j;
-
-	assert(dr);
-
-	/* a dns_request contains at least one question entry */
-	for (j = 0; j < dr->questions; j++) {
-		free(dr->dns_sub_question[j]->name);
-		free(dr->dns_sub_question[j]);
-	}
-
-	free(dr->dns_sub_question);
-	free(dr);
-}
-
-
-#define	PTR_MASK 0xc0
-#define	IS_PTR(x) (x & PTR_MASK)
-
-/* this function is a little bit tricky, the DNS packet format provides a
- * mechanism to compress a string. A special pattern signals that the next
- * bytes are a pointer to another place and not a vanilla character array */
-static int get_name(const char *data, size_t idx, size_t max,
-		char *ret_data, size_t max_data_ret_len)
-{
-	uint8_t llen, offset_ptr;
-	int name_end = -1; /* FIXME: change name of name_end */
-	size_t i = idx;
-	unsigned jumps = 0;
-	char *cp = ret_data;
-	const char *const end = ret_data + max_data_ret_len;
-
-	assert(idx <= max);
-
-	while (666) {
-		i += get8(data, i, max, &llen);
-
-		pr_debug("label len: %u", llen);
-
-		if (llen == 0) /* reached end of string */
-			break;
-
-		if (IS_PTR(llen)) {
-			pr_debug("label is pointer");
-			i += get8(data, i, max, &offset_ptr);
-			if (name_end < 0)
-				name_end = i;
-			i = (((int)llen & 0x3f) << 8) + offset_ptr;
-			if (i > max) {
-				err_msg("name format corrupt, skipping it");
-				return FAILURE;
-			}
-			if (jumps++ > max) {
-				err_msg("corrupted name, we jump more then characters in the array");
-				return FAILURE;
-			}
-
-			/* and jump */
-			continue;
-		}
-
-		if (llen > 63) {
-			err_msg("corrupted name format");
-			return FAILURE;
-		}
-
-		if (cp != ret_data) {
-			if (cp + 1 >= end) {
-				return FAILURE;
-			}
-			*cp++ = '.';
-		}
-		if (cp + llen >= end)
-			return FAILURE;
-		memcpy(cp, data + i, llen);
-		cp += llen;
-		i  += llen;
-	}
-
-	if (cp >= end)
-		return FAILURE;
-	*cp = '\0';
-
-	if (name_end < 0) {
-		return i;
-	} else {
-		return name_end;
-	}
-}
-
-/* see http://en.wikipedia.org/wiki/List_of_DNS_record_types */
-#define	TYPE_A   1
-#define	TYPE_NS  2
-#define	TYPE_MD  3
-#define	TYPE_MF 4
-#define	TYPE_CNAME 5
-#define	TYPE_SOA 6
-#define	TYPE_MB  7
-#define	TYPE_MG 8
-#define	TYPE_MR 9
-#define	TYPE_NULL 10
-#define	TYPE_WKS 11
-#define	TYPE_PTR 12
-#define	TYPE_HINFO 13
-#define	TYPE_MINFO 14
-#define	TYPE_MX 15
-#define	TYPE_TXT 16
-
-#define	TYPE_AAAA	28
-#define	TYPE_AFSDB	18
-#define	TYPE_CERT	37
-#define	TYPE_DHCID	49
-#define	TYPE_DLV	32769
-#define	TYPE_DNAME	39
-#define	TYPE_DNSKEY		48
-#define	TYPE_DS		43
-#define	TYPE_HIP	55
-#define	TYPE_IPSECKEY	45
-#define	TYPE_KEY	25
-#define	TYPE_LOC	29
-#define	TYPE_NAPTR	35
-#define	TYPE_NSEC	47
-#define	TYPE_NSEC3	50
-#define	TYPE_NSEC3PARAM		51
-#define	TYPE_RRSIG	46
-#define	TYPE_SIG	24
-#define	TYPE_SPF	99
-#define	TYPE_SRV	33
-#define	TYPE_SSHFP	44
-#define	TYPE_TA		32768
-#define	TYPE_TKEY	249
-#define	TYPE_TSIG	250
-
-/* not supported */
-#if 0
-#define	TYPE_AXFR	252
-#define	TYPE_IXFR	251
-#define	TYPE_OPT	41
-#endif
-
-/* convert the most common types to names */
-static const char *type_to_str(uint16_t type)
-{
-	switch (type) {
-		case TYPE_A:     return "A";
-		case TYPE_AAAA:  return "AAAA";
-		case TYPE_MX:    return "MX";
-		case TYPE_PTR:   return "PTR";
-		case TYPE_SOA:   return "SOA";
-		case TYPE_CNAME: return "CNAME";
-		case TYPE_NS:    return "NS";
-		case TYPE_TXT:   return "TXT";
-		default:         return "UNKNOWN";
-	};
-}
-
-
-static int is_valid_type(uint16_t type)
-{
-	switch (type) {
-		case TYPE_A: case TYPE_NS: case TYPE_MD: case TYPE_MF:
-		case TYPE_CNAME: case TYPE_SOA: case TYPE_MB: case TYPE_MG:
-		case TYPE_MR: case TYPE_NULL: case TYPE_WKS: case TYPE_PTR:
-		case TYPE_HINFO: case TYPE_MINFO: case TYPE_MX:
-		case TYPE_TXT: case TYPE_AAAA: case TYPE_AFSDB:
-		case TYPE_CERT: case TYPE_DHCID: case TYPE_DLV:
-		case TYPE_DNAME: case TYPE_DNSKEY: case TYPE_DS: case TYPE_HIP:
-		case TYPE_IPSECKEY: case TYPE_KEY: case TYPE_LOC:
-		case TYPE_NAPTR: case TYPE_NSEC: case TYPE_NSEC3:
-		case TYPE_NSEC3PARAM: case TYPE_RRSIG: case TYPE_SIG:
-		case TYPE_SPF: case TYPE_SRV: case TYPE_SSHFP: case TYPE_TA:
-		case TYPE_TKEY: case TYPE_TSIG:
-			return SUCCESS;
-			break;
-		default:
-			return FAILURE;
-
-	}
-	return FAILURE;
-}
-
-#define	CLASS_IN 1 /* INET */
-/* not supported */
-#if 0
-#define	CLASS_CS 2 /* CSNET */
-#define	CLASS_CH 3 /* CHAOS */
-#define	CLASS_HS 4 /* Hesiod */
-#endif
-
-static const char *class_to_str(uint16_t class)
-{
-	switch (class) {
-		case CLASS_IN: return "IN";
-		default:       return "UNKNOWN";
-	}
-}
-
-static int is_valid_class(uint16_t class)
-{
-	switch (class) {
-		case CLASS_IN: return SUCCESS;
-		default: return FAILURE;
-	};
-	return FAILURE;
-}
-
-
-#define	DNS_FLAG_MASK_QUESTION 0x0100
-#define	DNS_FLAG_STANDARD_QUERY 0x7800
-#define	IS_DNS_QUESTION(x) (x & DNS_FLAG_MASK_QUESTION)
-#define	IS_DNS_STANDARD_QUERY(x) (x & DNS_FLAG_STANDARD_QUERY)
-
 static void process_dns_query(struct ctx *ctx, const char *packet, const size_t len,
 		const struct sockaddr_storage *ss, socklen_t ss_len)
 {
-	int ret, i = 0, ii, j;
-	struct dns_request *dr;
+	int ret;
+	struct dns_pdu_hndl *dns_pdu_hndl;
 
-	dr = xzalloc(sizeof(*dr));
+	dns_pdu_hndl = xzalloc(sizeof(*dns_pdu_hndl));
+
+	ret = parse_dns_packet(ctx, packet, len, &dns_pdu_hndl->dns_pdu);
+	if (ret != SUCCESS) {
+		err_msg("received an malformed DNS packet, skipping this packet");
+		free(dns_pdu_hndl);
+		return;
+	}
 
 	/* splice context to our dns query */
-	dr->ctx = ctx;
+	dns_pdu_hndl->ctx = ctx;
 
-	i += get16(packet, i, len, &dr->id);
-	i += get16(packet, i, len, &dr->flags);
-	i += get16(packet, i, len, &dr->questions);
-	i += get16(packet, i, len, &dr->answers);
-	i += get16(packet, i, len, &dr->authority);
-	i += get16(packet, i, len, &dr->additional);
-
-	pr_debug("process DNS query [packet size: %d id:%u, flags:0x%x, "
-			 "questions:%u, answers:%u, authority:%u, additional:%u]",
-			 len, dr->id, dr->flags, dr->questions, dr->answers, dr->authority, dr->additional);
-
-	if (!IS_DNS_QUESTION(dr->flags)) {
+	if (!IS_DNS_QUESTION(dns_pdu_hndl->dns_pdu->flags)) {
 		pr_debug("incoming packet is no QUESTION DNS packet (flags: 0x%x, accepted: 0x%x",
-				dr->flags, DNS_FLAG_MASK_QUESTION);
-		free(dr);
+				dns_pdu_hndl->dns_pdu->flags, DNS_FLAG_MASK_QUESTION);
+		free_dns_pdu(dns_pdu_hndl->dns_pdu);
+		free(dns_pdu_hndl);
 		return;
 	}
 
-	if (dr->questions < 1) {
+	if (dns_pdu_hndl->dns_pdu->questions < 1) {
 		err_msg("incoming DNS request does not contain a DNS request");
-		free(dr);
+		free_dns_pdu(dns_pdu_hndl->dns_pdu);
+		free(dns_pdu_hndl);
 		return;
 	}
 
-	if (dr->questions > 1) {
+	if (dns_pdu_hndl->dns_pdu->questions > 1) {
 		err_msg("the current implementation support only DNS request"
 				" with one question - this request contains %d questions"
-				" so i will skip this packet", dr->questions);
-		free(dr);
+				" so i will skip this packet",
+				dns_pdu_hndl->dns_pdu->questions);
+		free_dns_pdu(dns_pdu_hndl->dns_pdu);
+		free(dns_pdu_hndl);
 		return;
 	}
 
-	if (dr->answers > 0 || dr->authority > 0 || dr->additional > 0) {
+	if (dns_pdu_hndl->dns_pdu->answers > 0 ||
+		dns_pdu_hndl->dns_pdu->authority > 0 ||
+		dns_pdu_hndl->dns_pdu->additional > 0) {
 		err_msg("the DNS REQUEST comes with unusual additional sections: "
 				"answers: %d, authority: %d, additional: %d. I ignore these "
-				"sections!");
+				"sections!", 1, 1, 1); // FIXME: 1  1 1 
 	}
 
 	/* save caller address */
-	memcpy(&dr->src_ss, ss, sizeof(dr->src_ss));
-	dr->src_ss_len = ss_len;
-
-	dr->dns_sub_question = xzalloc(sizeof(struct dns_sub_question *) * dr->questions);
-
-#define	MAX_DNS_NAME 256
-
-	for (j = 0; j < dr->questions; j++) {
-		struct dns_sub_question *dnssq;
-		char name[MAX_DNS_NAME];
-
-		ii = get_name(packet, i, len, name, MAX_DNS_NAME);
-		if (ii == FAILURE) {
-			err_msg("corrupted name format");
-			return;
-		}
-		i = ii;
-
-		pr_debug("parsed name: %s (new offset: %d)", name, ii);
-
-		dnssq = xzalloc(sizeof(struct dns_sub_question));
-
-		i += get16(packet, i, len, &dnssq->type);
-		i += get16(packet, i, len, &dnssq->class);
-
-		pr_debug("parsed type: %s, parsed class: %s",
-				type_to_str(dnssq->type), class_to_str(dnssq->class));
-
-		dnssq->name = xzalloc(strlen(name) + 1);
-
-		memcpy(dnssq->name, name, strlen(name) + 1);
-
-		dr->dns_sub_question[j] = dnssq;
-
-		/* XXX: the error check is here to simplify the
-		 * error path to free() the allocated memory */
-		if (is_valid_type(dnssq->type) != SUCCESS ||
-			is_valid_class(dnssq->class) != SUCCESS) {
-			err_msg("parsed type %s or class %s is not valid, i ignore this request",
-					type_to_str(dnssq->type), class_to_str(dnssq->class));
-
-			/* free all allocated memory */
-			for ( ; j >= 0; j--) {
-				free(dr->dns_sub_question[j]->name);
-				free(dr->dns_sub_question[j]);
-			}
-			free(dr->dns_sub_question);
-			free(dr);
-		}
-
-	}
+	memcpy(&dns_pdu_hndl->src_ss, ss, sizeof(dns_pdu_hndl->src_ss));
+	dns_pdu_hndl->src_ss_len = ss_len;
 
 	/* now we do the actual query */
-	ret = enqueue_request(dr);
+	ret = enqueue_request(dns_pdu_hndl);
 	if (ret != SUCCESS) {
 		err_msg("Cannot enqueue request in active queue");
 		return;
