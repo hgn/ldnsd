@@ -318,13 +318,14 @@ struct dns_pdu_hndl {
 	char *packet;
 	size_t len;
 
-	struct dns_pdu *dns_pdu;
+	struct dns_pdu *dns_question_pdu;
 
 	/* caller origin */
 	struct sockaddr_storage src_ss;
 	socklen_t src_ss_len;
 
-	struct nameserver *ns; /* a pointer to the used nameserver */
+	/* a pointer to the used nameserver */
+	struct nameserver *ns;
 };
 
 #define	MAX_PACKET_LEN 2048

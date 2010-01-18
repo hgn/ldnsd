@@ -98,7 +98,7 @@ static void process_dns_query(struct ctx *ctx, const char *packet, const size_t 
 
 	dns_pdu_hndl = xzalloc(sizeof(*dns_pdu_hndl));
 
-	ret = parse_dns_packet(ctx, packet, len, &dns_pdu_hndl->dns_pdu);
+	ret = parse_dns_packet(ctx, packet, len, &dns_pdu_hndl->dns_question_pdu);
 	if (ret != SUCCESS) {
 		err_msg("received an malformed DNS packet, skipping this packet");
 		free(dns_pdu_hndl);
@@ -108,42 +108,47 @@ static void process_dns_query(struct ctx *ctx, const char *packet, const size_t 
 	/* splice context to our dns query */
 	dns_pdu_hndl->ctx = ctx;
 
-	if (!IS_DNS_QUESTION(dns_pdu_hndl->dns_pdu->flags)) {
+	if (!IS_DNS_QUESTION(dns_pdu_hndl->dns_question_pdu->flags)) {
 		pr_debug("incoming packet is no QUESTION DNS packet (flags: 0x%x, accepted: 0x%x",
-				dns_pdu_hndl->dns_pdu->flags, DNS_FLAG_MASK_QUESTION);
-		free_dns_pdu(dns_pdu_hndl->dns_pdu);
+				dns_pdu_hndl->dns_question_pdu->flags, DNS_FLAG_MASK_QUESTION);
+		free_dns_pdu(dns_pdu_hndl->dns_question_pdu);
 		free(dns_pdu_hndl);
 		return;
 	}
 
-	if (dns_pdu_hndl->dns_pdu->questions < 1) {
+	if (dns_pdu_hndl->dns_question_pdu->questions < 1) {
 		err_msg("incoming DNS request does not contain a DNS request");
-		free_dns_pdu(dns_pdu_hndl->dns_pdu);
+		free_dns_pdu(dns_pdu_hndl->dns_question_pdu);
 		free(dns_pdu_hndl);
 		return;
 	}
 
-	if (dns_pdu_hndl->dns_pdu->questions > 1) {
+	if (dns_pdu_hndl->dns_question_pdu->questions > 1) {
 		err_msg("the current implementation support only DNS request"
 				" with one question - this request contains %d questions"
 				" so i will skip this packet",
-				dns_pdu_hndl->dns_pdu->questions);
-		free_dns_pdu(dns_pdu_hndl->dns_pdu);
+				dns_pdu_hndl->dns_question_pdu->questions);
+		free_dns_pdu(dns_pdu_hndl->dns_question_pdu);
 		free(dns_pdu_hndl);
 		return;
 	}
 
-	if (dns_pdu_hndl->dns_pdu->answers > 0 ||
-		dns_pdu_hndl->dns_pdu->authority > 0 ||
-		dns_pdu_hndl->dns_pdu->additional > 0) {
+	if (dns_pdu_hndl->dns_question_pdu->answers > 0 ||
+		dns_pdu_hndl->dns_question_pdu->authority > 0 ||
+		dns_pdu_hndl->dns_question_pdu->additional > 0) {
 		err_msg("the DNS REQUEST comes with unusual additional sections: "
 				"answers: %d, authority: %d, additional: %d. I ignore these "
-				"sections!", 1, 1, 1); // FIXME: 1  1 1 
+				"sections!",
+				dns_pdu_hndl->dns_question_pdu->answers,
+				dns_pdu_hndl->dns_question_pdu->authority,
+				dns_pdu_hndl->dns_question_pdu->additional);
 	}
 
 	/* save caller address */
 	memcpy(&dns_pdu_hndl->src_ss, ss, sizeof(dns_pdu_hndl->src_ss));
 	dns_pdu_hndl->src_ss_len = ss_len;
+
+	pr_debug("packet is a valid DNS REQUEST, I process this question now");
 
 	/* now we do the actual query */
 	ret = enqueue_request(dns_pdu_hndl);
@@ -174,16 +179,14 @@ static void incoming_request(int fd, int what, void *data)
 		return;
 	}
 
-	while (666) { /* iterate until the rx is empty */
+	while (666) { /* iterate until the kernel rx queue is empty */
 		rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr*) &ss, &ss_len);
 		if (rc < 0) {
 			if (errno == EAGAIN)
 				return;
 			err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
 		}
-
-		pr_debug("incoming DNS request");
-
+		pr_debug("incoming packet on back-end port %d", DEFAULT_LISTEN_PORT);
 		process_dns_query(ctx, packet, rc, &ss, ss_len);
 	}
 }

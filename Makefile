@@ -53,10 +53,10 @@ OBJ := ev.o \
 			 clist.o \
 			 utils.o \
 			 nameserver.o \
-			 server_side.o \
-			 client_side.o \
+			 back-end.o \
+			 front-end.o \
 			 hosts.o \
-			 pkt_parser.o
+			 pkt-parser.o
 
 TARGET := cachefor
 
