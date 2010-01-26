@@ -173,21 +173,6 @@ enum res_err_code {
 	RES_ERROR_TIMEOUT,
 };
 
-/* the data structure that is exchanged
- * between the frontend and the backend
- * and in the case this piece of software
- * is used as a library the dns_awnser is
- * passed to the caller */
-struct dns_response {
-
-	/* the err_code contains information if
-	 * a request was successful or not. If not
-	 * then the error code is also encoded here */
-	enum res_err_code err_code;
-	char *pdu;
-	size_t pdu_len;
-};
-
 
 enum active_dns_request_status {
 	ACTIVE_DNS_REQUEST_NEW = 1,
@@ -195,29 +180,6 @@ enum active_dns_request_status {
 };
 
 
-/* the dns request wrapper that is transmitted to a nameserver */
-struct active_dns_request {
-
-	int type;
-	int class;
-	char *name;
-
-	int status;
-
-	/* packet specific */
-	int16_t id;
-
-	/* the constructed actual packet */
-	char *pdu;
-	size_t pdu_len;
-
-	/* the used nameserver */
-	struct nameserver *ns;
-
-	/* this function is called if the dns request
-	 * was successful or a timeout occurred */
-	int (*cb)(struct dns_response *);
-};
 
 
 struct opts {
@@ -280,11 +242,22 @@ struct dns_request {
 };
 
 
+/* see Stevens TCP/IP Illustrated Vol.1
+ * page 192 for a great outline */
 #define	DNS_FLAG_MASK_QUESTION 0x0100
 #define	DNS_FLAG_STANDARD_QUERY 0x7800
+#define	DNS_FLAG_STANDARD_ANSWER 0x8180
 #define	IS_DNS_QUESTION(x) (x & DNS_FLAG_MASK_QUESTION)
+#define	IS_DNS_ANSWER(x) (x & DNS_FLAG_MASK_QUESTION)
 #define	IS_DNS_STANDARD_QUERY(x) (x & DNS_FLAG_STANDARD_QUERY)
 
+#define	FLAG_IS_QR_RESPONSE(x)           (((x & 0x8000) >> 15) == 1)
+#define	FLAG_IS_QR_QUERY(x)              (((x & 0x8000) >> 15) == 0)
+#define	FLAG_IS_OPCODE_STD_QUERY(x)      (((x & 0x7800) >> 11) == 0)
+#define	FLAG_IS_OPCODE_INVERSE_QUERY(x)  (((x & 0x7800) >> 11) == 1)
+#define	FLAG_IS_RCODE_NO_ERROR(x)        ((x & 0x000f) == 0)
+
+#define	FLAG_RCODE(x) ((x) & 0x000f)
 
 struct dns_sub_section {
 	char *name; /* the already restructed label */
@@ -328,6 +301,48 @@ struct dns_pdu_hndl {
 	struct nameserver *ns;
 };
 
+
+/* the data structure that is exchanged
+ * between the frontend and the backend
+ * and in the case this piece of software
+ * is used as a library the dns_awnser is
+ * passed to the caller */
+struct dns_response {
+
+	/* the err_code contains information if
+	 * a request was successful or not. If not
+	 * then the error code is also encoded here */
+	int err_code;
+	struct dns_pdu *dns_pdu;
+
+	/* the correspondent context */
+	struct ctx *ctx;
+};
+
+/* the dns request wrapper that is transmitted to a nameserver */
+struct active_dns_request {
+
+	int type;
+	int class;
+	char *name;
+
+	int status;
+
+	/* packet specific */
+	int16_t id;
+
+	/* the constructed actual packet */
+	char *pdu;
+	size_t pdu_len;
+
+	/* the used nameserver */
+	struct nameserver *ns;
+
+	/* this function is called if the dns request
+	 * was successful or a timeout occurred */
+	int (*cb)(struct dns_response *);
+};
+
 #define	MAX_PACKET_LEN 2048
 
 
@@ -343,43 +358,44 @@ struct average {
 };
 
 /* utils.c */
-void average_init(struct average *);
-int32_t exponential_average(int32_t, int32_t, uint8_t);
-void average_add(struct average *, int32_t);
-int32_t average_value(struct average *);
-unsigned long long xstrtoull(const char *);
-void xfstat(int, struct stat *, const char *);
-void xsetsockopt(int, int, int, const void *, socklen_t, const char *);
-void x_err_sys(const char *, int, const char *, ...);
-void x_err_ret(const char *, int, const char *, ...);
-void msg(const char *, ...);
-double tv_to_sec(struct timeval *);
-int subtime(struct timeval *, struct timeval *, struct timeval *);
-int xatoi(const char *);
-void * xmalloc(size_t);
-void *xzalloc(size_t);
-int nodelay(int, int);
-void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct addrinfo **);
-char *xstrdup(const char *);
+extern void average_init(struct average *);
+extern int32_t exponential_average(int32_t, int32_t, uint8_t);
+extern void average_add(struct average *, int32_t);
+extern int32_t average_value(struct average *);
+extern unsigned long long xstrtoull(const char *);
+extern void xfstat(int, struct stat *, const char *);
+extern void xsetsockopt(int, int, int, const void *, socklen_t, const char *);
+extern void x_err_sys(const char *, int, const char *, ...);
+extern void x_err_ret(const char *, int, const char *, ...);
+extern void msg(const char *, ...);
+extern double tv_to_sec(struct timeval *);
+extern int subtime(struct timeval *, struct timeval *, struct timeval *);
+extern int xatoi(const char *);
+extern void * xmalloc(size_t);
+extern void *xzalloc(size_t);
+extern int nodelay(int, int);
+extern void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct addrinfo **);
+extern char *xstrdup(const char *);
 
 /* nameserver.c */
-int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
-struct nameserver *nameserver_select(const struct ctx *);
-int nameserver_init(struct ctx *);
+extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
+extern struct nameserver *nameserver_select(const struct ctx *);
+extern int nameserver_init(struct ctx *);
 
 /* server_side.c */
-int adns_request_init(struct ctx *);
-int active_dns_request_set(const struct ctx *, const char *, int, int, int (*cb)(struct dns_response *));
-int init_server_side(struct ctx *);
+extern int adns_request_init(struct ctx *);
+extern int active_dns_request_set(const struct ctx *, const char *, int, int, int (*cb)(struct dns_response *));
+extern int init_server_side(struct ctx *);
 
 /* client_side.c */
-void fini_server_socket(int);
-int init_client_side(struct ctx *);
+extern void fini_server_socket(int);
+extern int init_client_side(struct ctx *);
 
 /* pkt_parser.c */
-int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
-void free_dns_subsection(uint16_t, struct dns_sub_section **);
-void free_dns_pdu(struct dns_pdu *);
+extern int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
+extern void free_dns_subsection(uint16_t, struct dns_sub_section **);
+extern void free_dns_pdu(struct dns_pdu *);
+extern void pretty_print_flags(FILE *, uint16_t);
 
 #endif /* CACHEFOR_H */
 

@@ -283,8 +283,7 @@ dnsname_to_labels(uint8_t *const buf, size_t buf_len, off_t j,
 }
 
 
-static int
-evdns_request_data_build(const char *const name, const int name_len,
+static int evdns_request_data_build(const char *const name, const int name_len,
     const uint16_t trans_id, const uint16_t type, const uint16_t class,
     uint8_t *const buf, size_t buf_len) {
 	off_t j = 0;  /* current offset into buf */
@@ -331,6 +330,10 @@ static int internal_build_dns_request(const struct ctx *ctx,
 	pr_debug("build active dns request packet of size %d", rlen);
 
 	adns_request->pdu = xmalloc(rlen);
+
+	adns_request->name  = xstrdup(str);
+	adns_request->type  = type;
+	adns_request->class = class;
 
 	memcpy(adns_request->pdu, pdu, rlen);
 	adns_request->pdu_len = rlen;
@@ -417,15 +420,125 @@ int adns_request_init(struct ctx *ctx)
 	return SUCCESS;
 }
 
+
+/* if we found the requested we return FAILURE to signal that
+ * the list iteration can stop */
+static int search_adns_requests(void *req, void *dns_response)
+{
+	int i;
+	struct dns_pdu *dns_pdu_r;
+	struct dns_response *dns_r = dns_response;
+	struct active_dns_request *adns_request = req;
+	char *q_name, *r_name;
+	uint16_t q_type, r_type;
+	uint16_t q_class, r_class;
+
+	dns_pdu_r = dns_r->dns_pdu;
+
+	if (dns_pdu_r->questions != 1)
+		err_msg_die(EXIT_FAILINT, "internal error, should never happended"
+				", the question section contains %d elements; should be %d",
+				dns_pdu_r->questions, 1);
+
+	/* check if type, class and name matches */
+	for (i = 0; i < dns_pdu_r->questions; i++) {
+		struct dns_sub_section *dnsss = dns_pdu_r->questions_section[i];
+
+		/* FIXME: copy and free the name */
+		r_name  = dnsss->name;
+		r_type  = dnsss->type;
+		r_class = dnsss->class;
+
+		q_name  = adns_request->name;
+		q_type  = adns_request->type;
+		q_class = adns_request->class;
+
+		if ( (r_type == q_type)   &&
+			 (r_class == q_class) &&
+			 (!strcmp(r_name, q_name))) {
+
+			fprintf(stderr, "found in inflight list\n");
+			/* ok, we found the element, now break
+			 * the list processing */
+			adns_request->cb(dns_r);
+			return FAILURE;
+		}
+
+	}
+
+	fprintf(stderr, "dont find match");
+
+	/* signals that we did NOT found the searched entry */
+	return SUCCESS;
+}
+
+
+
+/* this function reads a anwser of a nameserver
+ * We do the following:
+ * a) do some trivial valid checks
+ * b) find the entry in the question list (inflight_request_list)
+ *   1) if we found it in the list we prepare the awnser and
+ *      call the user provided callback function (back-end)
+ *   2) if not, we silently discard the packet because we never
+ *      request that information or we assume that this packet is a attack! ;-)
+ */
 static void process_dns_response(struct ctx *ctx, const char *packet, const size_t len,
 		const struct sockaddr_storage *ss, socklen_t ss_len)
 {
-	/* some sanity checks first */
-	(void) ctx;
-	(void) packet;
-	(void) len;
+	int ret;
+	struct dns_pdu *dns_pdu;
+	struct dns_response *dns_response;
+
 	(void) ss;
 	(void) ss_len;
+
+	dns_response = xzalloc(sizeof(*dns_response));
+
+	ret = parse_dns_packet(ctx, packet, len, &dns_pdu);
+	if (ret != SUCCESS) {
+		err_msg("received an malformed DNS packet, skipping this packet");
+		goto err;
+	}
+
+	dns_response->dns_pdu = dns_pdu;
+
+	if (dns_pdu->questions != 1) {
+		err_msg_die(EXIT_FAILNET, "nor then one question, we never reqest for more"
+				" then one question");
+	}
+
+	if (!FLAG_IS_QR_RESPONSE(dns_pdu->flags)) {
+		err_msg("incoming packet is no response packet");
+		goto err;
+	}
+
+	/* splice context to our dns query */
+	dns_response->ctx = ctx;
+
+	/* remember server error */
+	dns_response->err_code = FLAG_RCODE(dns_pdu->flags);
+
+	/* check for error code - regardless if a error occured
+	 * we generate a pdu and encode all values, but we pass
+	 * down the error. It is up to the callback routine to
+	 * check this error */
+	if (!FLAG_IS_RCODE_NO_ERROR(dns_pdu->flags)) {
+		/* FIXME: set error code */
+		err_msg("NON FATAL: error occured, check this gegen");
+	}
+
+	/* now search the inflight list, all relevant processing
+	 * is done in search_adns_requests */
+	list_for_each(ctx->inflight_request_list,
+			search_adns_requests, (void *)dns_response);
+
+
+	return;
+
+err:
+	free(dns_pdu);
+	free(dns_response);
 }
 
 /* a nameserver send us some data

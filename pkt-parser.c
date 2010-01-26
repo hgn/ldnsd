@@ -140,6 +140,97 @@ static int is_valid_class(uint16_t class)
 }
 
 
+void pretty_print_flags(FILE *fp, uint16_t flags)
+{
+	unsigned val;
+
+	switch ((flags & 0x8000) >> 15) {
+		case 1:
+			fprintf(fp, "QR set: response, ");
+			break;
+		case 0:
+			fprintf(fp, "QR set: query, ");
+			break;
+		default:
+			fprintf(fp, "QR set: UNKNOWN, ");
+			break;
+	}
+
+	switch ((flags & 0x7800) >> 11) {
+		case 0:
+			fprintf(fp, "opcode: standard query, ");
+			break;
+		case 1:
+			fprintf(fp, "opcode: inverse query, ");
+			break;
+		case 2:
+			fprintf(fp, "opcode: server status request, ");
+			break;
+		default:
+			fprintf(fp, "opcode: UNKNOWN, ");
+			break;
+	}
+
+	switch ((flags & 0x0400) >> 10) {
+		case 1:
+			fprintf(fp, "AA: authoritative answer, ");
+			break;
+		case 0:
+			fprintf(fp, "AA: non-authoritative answer, ");
+			break;
+		default: /* could not happened */
+			break;
+	}
+
+	switch ((flags & 0x0200) >> 9) {
+		case 1:
+			fprintf(fp, "TC: truncated, ");
+			break;
+		case 0:
+			fprintf(fp, "TC: not truncated, ");
+			break;
+		default: /* could not happened */
+			break;
+	}
+
+	switch ((flags & 0x0100) >> 8) {
+		case 1:
+			fprintf(fp, "RD: recursion desired, ");
+			break;
+		case 0:
+			fprintf(fp, "RD: no recursion desired, ");
+			break;
+		default: /* could not happened */
+			break;
+	}
+
+	switch ((flags & 0x0080) >> 7) {
+		case 1:
+			fprintf(fp, "RA: recursive available, ");
+			break;
+		case 0:
+			fprintf(fp, "RA: recursive not available, ");
+			break;
+		default: /* could not happened */
+			break;
+	}
+
+	switch (flags & 0x000f) {
+		case 0:
+			fprintf(fp, "RCODE: no error, ");
+			break;
+		case 3:
+			fprintf(fp, "RCODE: name error, ");
+			break;
+		default:
+			fprintf(fp, "RCODE: UNKNWON error, ");
+			break;
+	}
+
+	fprintf(fp, "\n");
+}
+
+
 static int get8(const char *data, size_t idx, size_t max, uint8_t *ret)
 {
 	uint16_t tmp;

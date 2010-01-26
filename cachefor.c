@@ -76,13 +76,6 @@ static void free_ctx(struct ctx *c)
 	free(c); c = NULL;
 }
 
-/* XXX: only for debugging purpose */
-static int response_cb(struct dns_response *dns_a)
-{
-	(void) dns_a;
-
-	return SUCCESS;
-}
 
 int main(void)
 {
@@ -108,12 +101,6 @@ int main(void)
 	ret = init_client_side(ctx);
 	if (ret != SUCCESS) {
 		err_msg_die(EXIT_FAILMISC, "cannot initialize client side");
-	}
-
-	// XXX: simple test
-	ret = active_dns_request_set(ctx, "www.google.de", DNS_TYPE_A, DNS_CLASS_INET, response_cb);
-	if (ret != SUCCESS) {
-		err_msg("cannot set active DNS request");
 	}
 
 	ev_loop(ctx->ev_hndl, flags);

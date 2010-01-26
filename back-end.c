@@ -79,13 +79,55 @@ void fini_server_socket(int fd)
 }
 
 
-static int enqueue_request(struct dns_pdu_hndl *dns_pdu_hndl)
+/* this function is called if
+ * a) the cache return a positive answer (positive)
+ * b) the transmitted request returned (positive)
+ * c) the question timed out (negative)
+ * d) the server replied negative (also negative) */
+static int response_cb(struct dns_response *dns_a)
 {
+	(void) dns_a;
+
+	fprintf(stderr, "\n\ngot a anwser\n");
+
+	return SUCCESS;
+}
+
+/* dns_pdu_hndl contains exactly one question, not more
+ * and not less, so handle this question as it is */
+static int enqueue_request(struct ctx *ctx, struct dns_pdu_hndl *dns_pdu_hndl)
+{
+	int ret, i;
+	char *name;
+	uint16_t type, class;
+
 	assert(dns_pdu_hndl);
+	assert(dns_pdu_hndl->dns_question_pdu->questions == 1);
+
+	/* this loop is a no-op, but prepared for future enhancements */
+	for (i = 0; i < dns_pdu_hndl->dns_question_pdu->questions; i++) {
+		struct dns_sub_section *dnsss =
+			dns_pdu_hndl->dns_question_pdu->questions_section[i];
+
+		/* type and class are already checked
+		 * and valid values, no check required here */
+		name  = dnsss->name;
+		type  = dnsss->type;
+		class = dnsss->class;
+	}
 
 	/* attach timeout to request */
 
-	/* enqueue request into the global list of requests */
+	/* enqueue request into the global list of requests,
+	 * this process also starts a timer function. So after a
+	 * predefined timeout the response function is called guaranteed.
+	 * It is up to the caller to check the return code to handle negative
+	 * responses */
+	ret = active_dns_request_set(ctx, name, type, class, response_cb);
+	if (ret != SUCCESS) {
+		err_msg("cannot set active DNS request");
+	}
+
 
 	return SUCCESS;
 }
@@ -151,7 +193,7 @@ static void process_dns_query(struct ctx *ctx, const char *packet, const size_t 
 	pr_debug("packet is a valid DNS REQUEST, I process this question now");
 
 	/* now we do the actual query */
-	ret = enqueue_request(dns_pdu_hndl);
+	ret = enqueue_request(ctx, dns_pdu_hndl);
 	if (ret != SUCCESS) {
 		err_msg("Cannot enqueue request in active queue");
 		return;
