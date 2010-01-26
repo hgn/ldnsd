@@ -73,6 +73,71 @@
 #define	TYPE_OPT	41
 #endif
 
+void free_dns_journey(struct dns_journey *x)
+{
+	int i;
+
+	if (x->req_dns_pdu) {
+		for (i = 0; i < x->req_dns_pdu->questions; i++) {
+			struct dns_sub_section *dns_s = x->req_dns_pdu->questions_section[i];
+			if (dns_s->name)
+				free(dns_s->name);
+			free(dns_s);
+		}
+		for (i = 0; i < x->req_dns_pdu->answers; i++) {
+			struct dns_sub_section *dns_s = x->req_dns_pdu->answers_section[i];
+			if (dns_s->name)
+				free(dns_s->name);
+			free(dns_s);
+		}
+		for (i = 0; i < x->req_dns_pdu->authority; i++) {
+			struct dns_sub_section *dns_s = x->req_dns_pdu->authority_section[i];
+			if (dns_s->name)
+				free(dns_s->name);
+			free(dns_s);
+		}
+		for (i = 0; i < x->req_dns_pdu->additional; i++) {
+			struct dns_sub_section *dns_s = x->req_dns_pdu->additional_section[i];
+			if (dns_s->name)
+				free(dns_s->name);
+			free(dns_s);
+		}
+	}
+
+	if (x->req_name)
+		free(x->req_name);
+
+	if (x->req_packet)
+		free(x->req_packet);
+
+	if (x->res_dns_pdu) {
+		for (i = 0; i < x->res_dns_pdu->questions; i++) {
+			struct dns_sub_section *dns_s = x->res_dns_pdu->questions_section[i];
+			if (dns_s->name)
+				free(dns_s->name);
+			free(dns_s);
+		}
+		for (i = 0; i < x->res_dns_pdu->answers; i++) {
+			struct dns_sub_section *dns_s = x->res_dns_pdu->answers_section[i];
+			if (dns_s->name)
+				free(dns_s->name);
+			free(dns_s);
+		}
+		for (i = 0; i < x->res_dns_pdu->authority; i++) {
+			struct dns_sub_section *dns_s = x->res_dns_pdu->authority_section[i];
+			if (dns_s->name)
+				free(dns_s->name);
+			free(dns_s);
+		}
+		for (i = 0; i < x->res_dns_pdu->additional; i++) {
+			struct dns_sub_section *dns_s = x->res_dns_pdu->additional_section[i];
+			if (dns_s->name)
+				free(dns_s->name);
+			free(dns_s);
+		}
+	}
+}
+
 /* convert the most common types to names */
 static const char *type_to_str(uint16_t type)
 {
@@ -356,70 +421,6 @@ void free_dns_pdu(struct dns_pdu *dr)
 
 #define	MAX_DNS_NAME 256
 
-void free_dns_journey(struct dns_journey *x)
-{
-	int i;
-
-	if (x->req_dns_pdu) {
-		for (i = 0; i < x->req_dns_pdu->questions; i++) {
-			struct dns_sub_section *dns_s = x->req_dns_pdu->questions_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
-		}
-		for (i = 0; i < x->req_dns_pdu->answers; i++) {
-			struct dns_sub_section *dns_s = x->req_dns_pdu->answers_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
-		}
-		for (i = 0; i < x->req_dns_pdu->authority; i++) {
-			struct dns_sub_section *dns_s = x->req_dns_pdu->authority_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
-		}
-		for (i = 0; i < x->req_dns_pdu->additional; i++) {
-			struct dns_sub_section *dns_s = x->req_dns_pdu->additional_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
-		}
-	}
-
-	if (x->req_name)
-		free(x->req_name);
-
-	if (x->req_packet)
-		free(x->req_packet);
-
-	if (x->res_dns_pdu) {
-		for (i = 0; i < x->res_dns_pdu->questions; i++) {
-			struct dns_sub_section *dns_s = x->res_dns_pdu->questions_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
-		}
-		for (i = 0; i < x->res_dns_pdu->answers; i++) {
-			struct dns_sub_section *dns_s = x->res_dns_pdu->answers_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
-		}
-		for (i = 0; i < x->res_dns_pdu->authority; i++) {
-			struct dns_sub_section *dns_s = x->res_dns_pdu->authority_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
-		}
-		for (i = 0; i < x->res_dns_pdu->additional; i++) {
-			struct dns_sub_section *dns_s = x->res_dns_pdu->additional_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
-		}
-	}
-}
 
 int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		struct dns_pdu **dns_pdu)
