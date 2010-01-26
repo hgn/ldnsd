@@ -343,6 +343,44 @@ struct active_dns_request {
 	int (*cb)(struct dns_response *);
 };
 
+struct dns_journey {
+
+	/* the correspondent context */
+	struct ctx *ctx;
+
+	/* the following fields are completed before
+	   the request is transmitted to the ns */
+	struct dns_pdu *req_dns_pdu;
+
+	/* the requested name, class and type */
+	char *req_name;
+	uint16_t req_type;
+	uint16_t req_class;
+
+	char *req_packet;
+	size_t req_packet_len;
+
+	/* caller origin */
+	struct sockaddr_storage req_ss;
+	socklen_t req_ss_len;
+
+
+	/* the following fields are completed after
+	   the response is received from the ns */
+
+	int err_code;
+
+	struct dns_pdu *res_dns_pdu;
+
+	/* a pointer to the used nameserver */
+	struct nameserver *ns;
+
+	/* this function is called if the dns request
+	 * was successful, failed or a timeout occurred */
+	int (*cb)(struct dns_journey *);
+};
+
+
 #define	MAX_PACKET_LEN 2048
 
 
@@ -396,6 +434,7 @@ extern int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns
 extern void free_dns_subsection(uint16_t, struct dns_sub_section **);
 extern void free_dns_pdu(struct dns_pdu *);
 extern void pretty_print_flags(FILE *, uint16_t);
+extern void free_dns_journey(struct dns_journey *);
 
 #endif /* CACHEFOR_H */
 
