@@ -73,7 +73,7 @@ cachefor: $(OBJ)
 	$(CC) $(CFLAGS) $(EXTLIBS) -o $(TARGET) $(OBJ)
 
 clean:
-	-rm -f $(OBJ) $(TARGET)
+	-rm -f $(OBJ) $(TARGET) core
 
 cscope:
 	rm -f cscope*
