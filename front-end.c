@@ -26,7 +26,7 @@ static int16_t get_random_id(void)
 
 /* send a new request to the server */
 static int internal_request_tx(struct ctx *ctx,
-		struct active_dns_request *req)
+		struct dns_journey *dnsj)
 {
 	ssize_t ret;
 
@@ -34,9 +34,9 @@ static int internal_request_tx(struct ctx *ctx,
 
 	pr_debug("send active pdu request to nameserver via sendto");
 
-	ret = write(req->ns->socket, req->pdu, req->pdu_len);
+	ret = write(dnsj->ns->socket, dnsj->s_req_packet, dnsj->s_req_packet_len);
 
-	if (ret == (ssize_t)req->pdu_len)
+	if (ret == (ssize_t)dnsj->s_req_packet_len)
 		return SUCCESS;
 
 	if (ret < 0) {
@@ -54,7 +54,7 @@ static int internal_request_tx(struct ctx *ctx,
 	}
 }
 
-static int adns_list_add(const struct ctx *ctx, struct active_dns_request *adns_request)
+static int adns_list_add(const struct ctx *ctx, struct dns_journey *dnsj)
 {
 	if (list_size(ctx->waiting_request_list) > MAX_WAITING_REQUEST_LIST_SIZE) {
 		err_msg("the maximum number of waiting DNS REQUESTS is exhaustet"
@@ -64,7 +64,7 @@ static int adns_list_add(const struct ctx *ctx, struct active_dns_request *adns_
 
 	/* add the new reqest at the end of the list, the impact is
 	 * that previously added requests are executed in a FIFO ordering */
-	return list_insert_tail(ctx->waiting_request_list, adns_request);
+	return list_insert_tail(ctx->waiting_request_list, dnsj);
 }
 
 static struct active_dns_request *adns_request_alloc(void)
@@ -88,9 +88,9 @@ static void adns_request_free(void *req)
 
 /* add the new reqest at the end of the list, the impact is
  * that previously added requests are executed in a FIFO ordering */
-static int req_inflight_list_add(const struct ctx *ctx, struct active_dns_request *adns_request)
+static int req_inflight_list_add(const struct ctx *ctx, struct dns_journey *j)
 {
-	return list_insert_tail(ctx->inflight_request_list, adns_request);
+	return list_insert_tail(ctx->inflight_request_list, j);
 }
 
 /*
@@ -103,18 +103,18 @@ static int req_inflight_list_add(const struct ctx *ctx, struct active_dns_reques
  * 4. if the transmission was not successful we stop the
  *    iterating process and return FAILURE
  */
-static int process_all_adns_requsts(void *req, void *vctx)
+static int process_all_dnsj_reqeusts(void *req, void *vctx)
 {
 	int ret;
 	struct ctx *ctx = vctx;
-	struct active_dns_request *adns_request = req;
+	struct dns_journey *dnsj = req;
 
-	if (adns_request->status != ACTIVE_DNS_REQUEST_NEW)
+	if (dnsj->status != ACTIVE_DNS_REQUEST_NEW)
 		return SUCCESS; /* not interesting */
 
 	pr_debug("process a new active dns request");
 
-	ret = internal_request_tx(ctx, adns_request);
+	ret = internal_request_tx(ctx, dnsj);
 	if (ret != SUCCESS) {
 		err_msg("failure in transmission process");
 	}
@@ -124,7 +124,7 @@ static int process_all_adns_requsts(void *req, void *vctx)
 	/* ok, the DNS request is on the wire, fine
 	 * we now took the req from the list and
 	 * add it to the inflight list */
-	ret = list_remove(ctx->waiting_request_list, &req);
+	ret = list_remove(ctx->waiting_request_list, (void **)&dnsj);
 	if (ret != SUCCESS) {
 		err_msg_die(EXIT_FAILINT, "critical error: a element is not in "
 				"the list, even though it should be there - implemenation error");
@@ -133,10 +133,10 @@ static int process_all_adns_requsts(void *req, void *vctx)
 
 	pr_debug("dequeue successful transmitted request from the waiting_request_list");
 
-	ret = req_inflight_list_add(ctx, req);
+	ret = req_inflight_list_add(ctx, dnsj);
 	if (ret != SUCCESS) {
 		err_msg("cannot add DNS REQUEST to inflight list, dropping this packet");
-		adns_request_free(req);
+		free_dns_journey(dnsj);
 		return FAILURE;
 	}
 
@@ -152,7 +152,7 @@ static void adns_trigger_resolv(const struct ctx *ctx)
 	/* iterate over the list and send all dns
 	 * request who are in the state of ACTIVE_DNS_REQUEST_NEW
 	 * and ignore request in state ACTIVE_DNS_REQUEST_IN_FLIGHT */
-	ret = list_for_each(ctx->waiting_request_list, process_all_adns_requsts, (void *)ctx);
+	ret = list_for_each(ctx->waiting_request_list, process_all_dnsj_reqeusts, (void *)ctx);
 	if (ret != SUCCESS) {
 		err_msg("failure in iterating over active requst list");
 		return;
@@ -312,31 +312,37 @@ static int evdns_request_data_build(const char *const name, const int name_len,
 
 #define	MAX_REQUEST_PDU_LEN 1024
 
-static int internal_build_dns_request(const struct ctx *ctx,
-		struct active_dns_request *adns_request,
-		const char *str, int type, int class)
+#define	MIN_DOMAIN_NAME_LEN 2
+
+static int internal_build_dns_request(const struct ctx *ctx, struct dns_journey *dnsj)
 {
 	int rlen;
 	unsigned char pdu[MAX_REQUEST_PDU_LEN];
+	struct dns_pdu *request = dnsj->res_dns_pdu;
+	const char *req_name;
+	uint16_t req_class, req_type;
 
 	(void) ctx;
 
-	pr_debug("build dns request packet");
-	adns_request->id = get_random_id();
+	if (!dnsj->req_name && strlen(dnsj->req_name) < MIN_DOMAIN_NAME_LEN)
+		return FAILURE;
 
-	rlen = evdns_request_data_build(str, strlen(str), adns_request->id,
-	    type, class, pdu, MAX_REQUEST_PDU_LEN);
+	req_name  = dnsj->req_name;
+	req_type  = dnsj->req_type;
+	req_class = dnsj->req_class;
+
+	pr_debug("build dns request packet");
+	request->id = get_random_id();
+
+	rlen = evdns_request_data_build(req_name, strlen(req_name), request->id,
+	    req_type, req_class, pdu, MAX_REQUEST_PDU_LEN);
 
 	pr_debug("build active dns request packet of size %d", rlen);
 
-	adns_request->pdu = xmalloc(rlen);
+	dnsj->s_req_packet     = xmalloc(rlen);
+	dnsj->s_req_packet_len = rlen;
 
-	adns_request->name  = xstrdup(str);
-	adns_request->type  = type;
-	adns_request->class = class;
-
-	memcpy(adns_request->pdu, pdu, rlen);
-	adns_request->pdu_len = rlen;
+	memcpy(dnsj->s_req_packet, pdu, rlen);
 
 	return SUCCESS;
 }
@@ -344,13 +350,12 @@ static int internal_build_dns_request(const struct ctx *ctx,
 
 /* enqueue the query into the active queue */
 int active_dns_request_set(const struct ctx *ctx,
-		const char *q_str, int type, int class,
-		int (*cb)(struct dns_response *))
+		struct dns_journey *dnsj,
+		int (*cb)(struct dns_journey *))
 {
 	int ret;
-	struct active_dns_request *adns_request;
 
-	assert(q_str);
+	assert(dnsj);
 
 	/* 1. search local cache first */
 
@@ -359,29 +364,30 @@ int active_dns_request_set(const struct ctx *ctx,
 	 *    cache. Now we generate a new request
 	 *    and sent it to the server */
 
-	adns_request = adns_request_alloc();
 
 	/* cb is called when the nameserver answered or
 	 * a timeout occured */
-	adns_request->cb = cb;
+	dnsj->cb = cb;
 
-	adns_request->ns = nameserver_select(ctx);
-	if (!adns_request->ns) {
+	dnsj->ns = nameserver_select(ctx);
+	if (!dnsj->ns) {
 		err_msg("cannot select a nameserver, giving up");
-		adns_request_free(adns_request);
+		free_dns_journey(dnsj);
 		return FAILURE;
 	}
-	adns_request->status = ACTIVE_DNS_REQUEST_NEW;
+	dnsj->status = ACTIVE_DNS_REQUEST_NEW;
 
-	ret = internal_build_dns_request(ctx, adns_request, q_str, type, class);
+	dnsj->res_dns_pdu = xzalloc(sizeof(dnsj->res_dns_pdu));
+
+	ret = internal_build_dns_request(ctx, dnsj);
 	if (ret != SUCCESS) {
-		adns_request_free(adns_request);
+		free_dns_journey(dnsj);
 		return FAILURE;
 	}
 
-	ret = adns_list_add(ctx, adns_request);
+	ret = adns_list_add(ctx, dnsj);
 	if (ret != SUCCESS) {
-		adns_request_free(adns_request);
+		free_dns_journey(dnsj);
 		return FAILURE;
 	}
 
@@ -398,15 +404,15 @@ int active_dns_request_set(const struct ctx *ctx,
  * requirement! ;) */
 static int adns_request_match(const void *a, const void *b)
 {
-	const struct active_dns_request *adns_req1, *adns_req2;
+	const struct dns_journey *adns_req1, *adns_req2;
 
 	adns_req1 = a;
 	adns_req2 = b;
 
 	/* FIXME: add values checked */
-	if (adns_req1->type  == adns_req2->type  &&
-		adns_req1->class == adns_req2->class &&
-		adns_req1->id    == adns_req2->id)
+	if (adns_req1->req_type  == adns_req2->req_type  &&
+		adns_req1->req_class == adns_req2->req_class &&
+		(!strcmp(adns_req1->req_name, adns_req2->req_name)))
 		return 1;
 
 	return 0;
@@ -428,7 +434,7 @@ static int search_adns_requests(void *req, void *dns_response)
 	int i;
 	struct dns_pdu *dns_pdu_r;
 	struct dns_response *dns_r = dns_response;
-	struct active_dns_request *adns_request = req;
+	struct dns_journey *adns_request = req;
 	char *q_name, *r_name;
 	uint16_t q_type, r_type;
 	uint16_t q_class, r_class;
@@ -449,9 +455,9 @@ static int search_adns_requests(void *req, void *dns_response)
 		r_type  = dnsss->type;
 		r_class = dnsss->class;
 
-		q_name  = adns_request->name;
-		q_type  = adns_request->type;
-		q_class = adns_request->class;
+		q_name  = adns_request->req_name;
+		q_type  = adns_request->req_type;
+		q_class = adns_request->req_class;
 
 		if ( (r_type == q_type)   &&
 			 (r_class == q_class) &&
@@ -460,7 +466,9 @@ static int search_adns_requests(void *req, void *dns_response)
 			fprintf(stderr, "found in inflight list\n");
 			/* ok, we found the element, now break
 			 * the list processing */
-			adns_request->cb(dns_r);
+			/* FIXME: at this point we must copy the required
+			 * elements from the server response */
+			adns_request->cb(adns_request);
 			return FAILURE;
 		}
 

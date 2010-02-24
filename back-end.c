@@ -84,9 +84,9 @@ void fini_server_socket(int fd)
  * b) the transmitted request returned (positive)
  * c) the question timed out (negative)
  * d) the server replied negative (also negative) */
-static int response_cb(struct dns_response *dns_a)
+static int response_cb(struct dns_journey *dnsj)
 {
-	(void) dns_a;
+	(void) dnsj;
 
 	fprintf(stderr, "got a anwser\n");
 
@@ -124,7 +124,7 @@ static int enqueue_request(struct ctx *ctx, struct dns_journey *dns_journey)
 	 * It is up to the caller to check the return code to handle negative
 	 * responses
 	 * The backend, does not hold any state anymore */
-	ret = active_dns_request_set(ctx, name, type, class, response_cb);
+	ret = active_dns_request_set(ctx, dns_journey, response_cb);
 	if (ret != SUCCESS) {
 		err_msg("cannot set active DNS request");
 		return FAILURE;

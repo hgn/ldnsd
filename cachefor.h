@@ -343,6 +343,18 @@ struct active_dns_request {
 	int (*cb)(struct dns_response *);
 };
 
+
+/* this structure is threefolded:
+ * one part that is the incoming part from
+ * a resolver called a passive request.
+ * one part that we generate and send to the
+ * server, called a active request
+ * one part that we receive from the server
+ * and this is called a passive response
+ * Last but not least we generate a active
+ * respone and send it to the resolver. But
+ * this data structure is really temporaer so
+ * it is purely build on the stack */
 struct dns_journey {
 
 	/* the correspondent context */
@@ -364,9 +376,9 @@ struct dns_journey {
 	struct sockaddr_storage req_ss;
 	socklen_t req_ss_len;
 
+	char *s_req_packet;
+	size_t s_req_packet_len;
 
-	/* the following fields are completed after
-	   the response is received from the ns */
 
 	int err_code;
 
@@ -374,6 +386,9 @@ struct dns_journey {
 
 	/* a pointer to the used nameserver */
 	struct nameserver *ns;
+
+	/* status for internal processing (new, ...)*/
+	int status;
 
 	/* this function is called if the dns request
 	 * was successful, failed or a timeout occurred */
@@ -422,7 +437,7 @@ extern int nameserver_init(struct ctx *);
 
 /* server_side.c */
 extern int adns_request_init(struct ctx *);
-extern int active_dns_request_set(const struct ctx *, const char *, int, int, int (*cb)(struct dns_response *));
+extern int active_dns_request_set(const struct ctx *, struct dns_journey *, int (*cb)(struct dns_journey *));
 extern int init_server_side(struct ctx *);
 
 /* client_side.c */
