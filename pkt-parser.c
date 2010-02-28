@@ -456,21 +456,21 @@ void free_dns_pdu(struct dns_pdu *dr)
 	free(dr);
 }
 
-#define	MAX_DNS_NAME 256
-
 void dns_packet_set_answer_no(char *packet, uint16_t new_answer_no)
 {
-	uint16_t *ptr = packet + 6;
+	uint16_t *ptr = (uint16_t *)(packet + sizeof(char) * 6);
 	*ptr = ntohs(new_answer_no);
 }
 
 
 void dns_packet_set_response_flag(char *packet)
 {
-	uint16_t *flags = packet + 2;
+	uint16_t *flags = (uint16_t *)(packet + sizeof(char) * 2);
 	*flags |= 0x8000;
 }
 
+
+#define	MAX_DNS_NAME 256
 
 /* returns the number of bytes for the parsed section
  * or 0 in the case of an error
@@ -479,9 +479,11 @@ static unsigned parse_rr_section(struct ctx *ctx, const char *packet,
 		unsigned offset, const size_t max_len,
 		struct dns_sub_section **dnssq_ret)
 {
-	unsigned i;
+	int i;
 	struct dns_sub_section *dnssq;
 	char name[MAX_DNS_NAME];
+
+	(void) ctx;
 
 	i = get_name(packet, offset, max_len, name, MAX_DNS_NAME);
 	if (i == FAILURE) {
