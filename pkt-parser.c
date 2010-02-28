@@ -475,8 +475,43 @@ void dns_packet_set_response_flag(char *packet)
 /* returns the number of bytes for the parsed section
  * or 0 in the case of an error
  */
-static unsigned parse_rr_section(struct ctx *ctx, char *packet, unsigned offset, struct dns_pdu **dns_pdu)
+static unsigned parse_rr_section(struct ctx *ctx, const char *packet,
+		unsigned offset, const size_t max_len,
+		struct dns_sub_section **dnssq_ret)
 {
+	unsigned i;
+	struct dns_sub_section *dnssq;
+	char name[MAX_DNS_NAME];
+
+	i = get_name(packet, offset, max_len, name, MAX_DNS_NAME);
+	if (i == FAILURE) {
+		err_msg("corrupted name format");
+		return FAILURE;
+	}
+
+	pr_debug("parsed name: %s (new offset: %d)", name, i);
+
+	dnssq = xzalloc(sizeof(struct dns_sub_section));
+
+	/* save name */
+	dnssq->name = xzalloc(strlen(name) + 1);
+	memcpy(dnssq->name, name, strlen(name) + 1);
+
+	i += get16(packet, i, max_len, &dnssq->type);
+	i += get16(packet, i, max_len, &dnssq->class);
+	i += getint32_t(packet, i, max_len, &dnssq->ttl);
+	i += get16(packet, i, max_len, &dnssq->rdlength);
+
+	pr_debug("parsed type: %s, parsed class: %s ttl: %u rdlength: %u",
+			type_to_str(dnssq->type), class_to_str(dnssq->class),
+			dnssq->ttl, dnssq->rdlength);
+
+	/* skip data for offset variable */
+	i += dnssq->rdlength;
+
+	*dnssq_ret = dnssq;
+
+	return i;
 }
 
 
@@ -616,33 +651,12 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 
 		for (j = 0; j < dr->answers; j++) {
 			struct dns_sub_section *dnssq;
-			char name[MAX_DNS_NAME];
 
-			i = get_name(packet, i, len, name, MAX_DNS_NAME);
-			if (i == FAILURE) {
-				err_msg("corrupted name format");
-				return FAILURE;
+			i = parse_rr_section(ctx, packet, i, len, &dnssq);
+			if (i < 1) {
+				err_msg("cannot parse rr section, I skip this packet");
+				goto err_answer;
 			}
-
-			pr_debug("parsed name: %s (new offset: %d)", name, i);
-
-			dnssq = xzalloc(sizeof(struct dns_sub_section));
-
-			/* save name */
-			dnssq->name = xzalloc(strlen(name) + 1);
-			memcpy(dnssq->name, name, strlen(name) + 1);
-
-			i += get16(packet, i, len, &dnssq->type);
-			i += get16(packet, i, len, &dnssq->class);
-			i += getint32_t(packet, i, len, &dnssq->ttl);
-			i += get16(packet, i, len, &dnssq->rdlength);
-
-			pr_debug("parsed type: %s, parsed class: %s ttl: %u rdlength: %u",
-					type_to_str(dnssq->type), class_to_str(dnssq->class),
-					dnssq->ttl, dnssq->rdlength);
-
-			/* skip data for offset variable */
-			i += dnssq->rdlength;
 
 			/* splice this section */
 			dr->answers_section[j] = dnssq;
@@ -654,6 +668,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 				err_msg("parsed type %s or class %s is not valid, i ignore this request",
 						type_to_str(dnssq->type), class_to_str(dnssq->class));
 
+err_answer:
 				/* free all allocated memory */
 				for ( ; j >= 0; j--) {
 					free(dr->answers_section[j]->name);
@@ -679,27 +694,12 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 
 		for (j = 0; j < dr->authority; j++) {
 			struct dns_sub_section *dnssq;
-			char name[MAX_DNS_NAME];
 
-			i = get_name(packet, i, len, name, MAX_DNS_NAME);
-			if (i == FAILURE) {
-				err_msg("corrupted name format");
-				return FAILURE;
+			i = parse_rr_section(ctx, packet, i, len, &dnssq);
+			if (i < 1) {
+				err_msg("cannot parse rr section, I skip this packet");
+				goto err_authority;
 			}
-
-			pr_debug("parsed name: %s (new offset: %d)", name, i);
-
-			dnssq = xzalloc(sizeof(struct dns_sub_section));
-
-			i += get16(packet, i, len, &dnssq->type);
-			i += get16(packet, i, len, &dnssq->class);
-
-			pr_debug("parsed type: %s, parsed class: %s",
-					type_to_str(dnssq->type), class_to_str(dnssq->class));
-
-			dnssq->name = xzalloc(strlen(name) + 1);
-
-			memcpy(dnssq->name, name, strlen(name) + 1);
 
 			dr->authority_section[j] = dnssq;
 
@@ -710,6 +710,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 				err_msg("parsed type %s or class %s is not valid, i ignore this request",
 						type_to_str(dnssq->type), class_to_str(dnssq->class));
 
+err_authority:
 				/* free all allocated memory */
 				for ( ; j >= 0; j--) {
 					free(dr->authority_section[j]->name);
@@ -736,27 +737,12 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 
 		for (j = 0; j < dr->additional; j++) {
 			struct dns_sub_section *dnssq;
-			char name[MAX_DNS_NAME];
 
-			i = get_name(packet, i, len, name, MAX_DNS_NAME);
-			if (i == FAILURE) {
-				err_msg("corrupted name format");
-				return FAILURE;
+			i = parse_rr_section(ctx, packet, i, len, &dnssq);
+			if (i < 1) {
+				err_msg("cannot parse rr section, I skip this packet");
+				goto err_additional;
 			}
-
-			pr_debug("parsed name: %s (new offset: %d)", name, i);
-
-			dnssq = xzalloc(sizeof(struct dns_sub_section));
-
-			i += get16(packet, i, len, &dnssq->type);
-			i += get16(packet, i, len, &dnssq->class);
-
-			pr_debug("parsed type: %s, parsed class: %s",
-					type_to_str(dnssq->type), class_to_str(dnssq->class));
-
-			dnssq->name = xzalloc(strlen(name) + 1);
-
-			memcpy(dnssq->name, name, strlen(name) + 1);
 
 			dr->additional_section[j] = dnssq;
 
@@ -767,6 +753,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 				err_msg("parsed type %s or class %s is not valid, i ignore this request",
 						type_to_str(dnssq->type), class_to_str(dnssq->class));
 
+err_additional:
 				/* free all allocated memory */
 				for ( ; j >= 0; j--) {
 					free(dr->additional_section[j]->name);

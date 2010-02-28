@@ -280,24 +280,21 @@ struct dns_pdu {
 	uint16_t authority;
 	uint16_t additional;
 
-	/* these are the already parsed sections.
-	 * This means that the label isn't there anymore */
 	struct dns_sub_section **questions_section;
-	struct dns_sub_section **answers_section;
-	struct dns_sub_section **authority_section;
-	struct dns_sub_section **additional_section;
-
 	/* a pointer in the packet to the start of
 	 * the question section plus the length */
 	const char *questions_section_ptr;
 	size_t questions_section_len;
 
+	struct dns_sub_section **answers_section;
 	const char *answers_section_ptr;
 	size_t answers_section_len;
 
+	struct dns_sub_section **authority_section;
 	const char *authority_section_ptr;
 	size_t authority_section_len;
 
+	struct dns_sub_section **additional_section;
 	const char *additional_section_ptr;
 	size_t additional_section_len;
 };
