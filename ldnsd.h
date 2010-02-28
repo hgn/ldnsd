@@ -423,6 +423,14 @@ struct average {
 	uint64_t sum;
 };
 
+enum rr_section {
+	RR_SECTION_QDCOUNT = 1,
+	RR_SECTION_ANCOUNT,
+	RR_SECTION_NSCOUNT,
+	RR_SECTION_ARCOUNT,
+};
+
+
 /* utils.c */
 extern void average_init(struct average *);
 extern int32_t exponential_average(int32_t, int32_t, uint8_t);
@@ -459,7 +467,6 @@ extern int init_client_side(struct ctx *);
 
 /* pkt_parser.c */
 extern int clone_dns_pkt(char *, size_t, char **, size_t);
-extern void dns_packet_set_answer_no(char *, uint16_t);
 extern int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
 extern void free_dns_subsection(uint16_t, struct dns_sub_section **);
 extern void free_dns_pdu(struct dns_pdu *);
@@ -467,6 +474,7 @@ extern void pretty_print_flags(FILE *, uint16_t);
 extern void free_dns_journey(struct dns_journey *);
 extern void free_dns_journey_list_entry(void *);
 extern void dns_packet_set_response_flag(char *);
+void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
 
 #endif /* LDNSD_H */
 

@@ -556,7 +556,7 @@ static void nameserver_read_event(int fd, int what, void *data)
 
 
 /* default to google ns */
-#define	DEFAULT_NS "8.8.8.8"
+#define	DEFAULT_NS "192.168.1.1"
 #define	DEFAULT_NS_PORT "53"
 
 int init_server_side(struct ctx *ctx)

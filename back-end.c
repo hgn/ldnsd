@@ -90,6 +90,7 @@ void fini_server_socket(int fd)
 static int response_cb(struct dns_journey *dnsj)
 {
 	int ret;
+	size_t new_pkt_len, offset;
 	ssize_t sret;
 
 	pr_debug("got a anwser");
@@ -99,35 +100,74 @@ static int response_cb(struct dns_journey *dnsj)
 			 dnsj->p_res_dns_pdu->questions, dnsj->p_res_dns_pdu->answers,
 			 dnsj->p_res_dns_pdu->authority, dnsj->p_res_dns_pdu->additional);
 
-	pr_debug("size of answer section: %u", dnsj->p_res_dns_pdu->answers_section_len);
+	pr_debug("answer section: %u bytes, authority section %u bytes, additional section %u bytes",
+			dnsj->p_res_dns_pdu->answers_section_len, dnsj->p_res_dns_pdu->authority_section_len,
+			dnsj->p_res_dns_pdu->additional_section_len);
+
+	/* original packet len plus new answer, authority
+	 * and additional entries length */
+	new_pkt_len = dnsj->p_req_packet_len + dnsj->p_res_dns_pdu->answers_section_len +
+		dnsj->p_res_dns_pdu->authority_section_len + dnsj->p_res_dns_pdu->additional_section_len;
 
 	/* generate packet */
 	ret = clone_dns_pkt(dnsj->p_req_packet, dnsj->p_req_packet_len,
-			&dnsj->a_res_packet, dnsj->p_req_packet_len + dnsj->p_res_dns_pdu->answers_section_len);
+			&dnsj->a_res_packet, new_pkt_len);
 	if (ret != SUCCESS) {
 		err_msg_die(EXIT_FAILNET, "cannot generate a answer packet, clone_dns_pkt discovered"
 				" a internal error");
 	}
 
-	/* copy the answer at the directly after the and of the question */
-	memcpy(dnsj->a_res_packet + dnsj->p_req_packet_len, dnsj->p_res_dns_pdu->answers_section_ptr,
-			dnsj->p_res_dns_pdu->answers_section_len);
+	offset = dnsj->p_req_packet_len;
 
-	dns_packet_set_answer_no(dnsj->a_res_packet, dnsj->p_res_dns_pdu->answers);
+	if (dnsj->p_res_dns_pdu->answers > 0) {
+		/* copy the answer at the directly after the and of the question */
+		memcpy(dnsj->a_res_packet + offset, dnsj->p_res_dns_pdu->answers_section_ptr,
+				dnsj->p_res_dns_pdu->answers_section_len);
+
+		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
+				RR_SECTION_ANCOUNT, dnsj->p_res_dns_pdu->answers);
+
+		offset += dnsj->p_res_dns_pdu->answers_section_len;
+	}
+
+	if (dnsj->p_res_dns_pdu->authority > 0) {
+		memcpy(dnsj->a_res_packet + offset,
+				dnsj->p_res_dns_pdu->authority_section_ptr,
+				dnsj->p_res_dns_pdu->authority_section_len);
+
+		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
+				RR_SECTION_NSCOUNT, dnsj->p_res_dns_pdu->authority);
+
+		offset += dnsj->p_res_dns_pdu->authority_section_len;
+	}
+
+	if (dnsj->p_res_dns_pdu->additional > 0) {
+		memcpy(dnsj->a_res_packet + offset,
+				dnsj->p_res_dns_pdu->additional_section_ptr,
+				dnsj->p_res_dns_pdu->additional_section_len);
+
+		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
+				RR_SECTION_ARCOUNT, dnsj->p_res_dns_pdu->additional);
+
+		offset += dnsj->p_res_dns_pdu->additional_section_len;
+	}
 
 	/* set response flag */
 	dns_packet_set_response_flag(dnsj->a_res_packet);
 
+	pr_debug("now send answer to resolver. Packet size: %u",
+			offset);
+
 	sret = sendto(dnsj->ctx->client_server_socket, dnsj->a_res_packet,
-			dnsj->p_req_packet_len + dnsj->p_res_dns_pdu->answers_section_len, 0,
+			offset, 0,
 			(struct sockaddr *)&dnsj->p_req_ss, dnsj->p_req_ss_len);
 	if (sret < 0) {
 		err_sys("failure in send a DNS answer back to the resolver");
 	}
 
-
 	return SUCCESS;
 }
+
 
 /* dns_journey contains exactly one question, not more
  * and not less, so handle this question as it is */

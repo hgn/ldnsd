@@ -456,10 +456,32 @@ void free_dns_pdu(struct dns_pdu *dr)
 	free(dr);
 }
 
-void dns_packet_set_answer_no(char *packet, uint16_t new_answer_no)
+
+/* see 4.1.1. Header section format ( http://tools.ietf.org/html/rfc1035 ) */
+void dns_packet_set_rr_entries_number(char *packet, enum rr_section rr_section, uint16_t no)
 {
-	uint16_t *ptr = (uint16_t *)(packet + sizeof(char) * 6);
-	*ptr = ntohs(new_answer_no);
+	uint16_t *ptr;
+	int offset;
+
+	switch (rr_section) {
+		case RR_SECTION_QDCOUNT:
+			offset = 4;
+			break;
+		case RR_SECTION_ANCOUNT:
+			offset = 6;
+			break;
+		case RR_SECTION_NSCOUNT:
+			offset = 8;
+			break;
+		case RR_SECTION_ARCOUNT:
+			offset = 10;
+			break;
+		default:
+			err_msg_die(EXIT_FAILINT, "programmed error in rr section setter");
+			break;
+	}
+	ptr = (uint16_t *)(packet + sizeof(char) * offset);
+	*ptr = ntohs(no);
 }
 
 
@@ -771,8 +793,8 @@ err_additional:
 		}
 	}
 
-	dr->additional_section_len = i -
-		(dr->questions_section_len - dr->answers_section_len - dr->authority_section_len);
+	dr->additional_section_len = i - dr->questions_section_len -
+		dr->answers_section_len - dr->authority_section_len;
 
 	*dns_pdu = dr;
 	return SUCCESS;
