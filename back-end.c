@@ -102,12 +102,12 @@ static int enqueue_request(struct ctx *ctx, struct dns_journey *dns_journey)
 	uint16_t type, class;
 
 	assert(dns_journey);
-	assert(dns_journey->req_dns_pdu->questions == 1);
+	assert(dns_journey->p_req_dns_pdu->questions == 1);
 
 	/* this loop is a no-op, but prepared for future enhancements */
-	for (i = 0; i < dns_journey->req_dns_pdu->questions; i++) {
+	for (i = 0; i < dns_journey->p_req_dns_pdu->questions; i++) {
 		struct dns_sub_section *dnsss =
-			dns_journey->req_dns_pdu->questions_section[i];
+			dns_journey->p_req_dns_pdu->questions_section[i];
 
 		/* type and class are already checked
 		 * and valid values, no check required here */
@@ -133,7 +133,7 @@ static int enqueue_request(struct ctx *ctx, struct dns_journey *dns_journey)
 	return SUCCESS;
 }
 
-static void process_dns_query(struct ctx *ctx, const char *packet, const size_t len,
+static void process_p_dns_query(struct ctx *ctx, const char *packet, const size_t len,
 		const struct sockaddr_storage *ss, socklen_t ss_len)
 {
 	int ret;
@@ -141,7 +141,7 @@ static void process_dns_query(struct ctx *ctx, const char *packet, const size_t 
 
 	dns_journey = xzalloc(sizeof(*dns_journey));
 
-	ret = parse_dns_packet(ctx, packet, len, &dns_journey->req_dns_pdu);
+	ret = parse_dns_packet(ctx, packet, len, &dns_journey->p_req_dns_pdu);
 	if (ret != SUCCESS) {
 		err_msg("received an malformed DNS packet, skipping this packet");
 		free_dns_journey(dns_journey);
@@ -151,42 +151,46 @@ static void process_dns_query(struct ctx *ctx, const char *packet, const size_t 
 	/* splice context to our dns query */
 	dns_journey->ctx = ctx;
 
-	if (!IS_DNS_QUESTION(dns_journey->req_dns_pdu->flags)) {
+	if (!IS_DNS_QUESTION(dns_journey->p_req_dns_pdu->flags)) {
 		pr_debug("incoming packet is no QUESTION DNS packet (flags: 0x%x, accepted: 0x%x",
-				dns_journey->req_dns_pdu->flags, DNS_FLAG_MASK_QUESTION);
+				dns_journey->p_req_dns_pdu->flags, DNS_FLAG_MASK_QUESTION);
 		free_dns_journey(dns_journey);
 		return;
 	}
 
-	if (dns_journey->req_dns_pdu->questions < 1) {
+	if (dns_journey->p_req_dns_pdu->questions < 1) {
 		err_msg("incoming DNS request does not contain a DNS request");
 		free_dns_journey(dns_journey);
 		return;
 	}
 
-	if (dns_journey->req_dns_pdu->questions > 1) {
+	if (dns_journey->p_req_dns_pdu->questions > 1) {
 		err_msg("the current implementation support only DNS request"
 				" with one question - this request contains %d questions"
 				" so i will skip this packet",
-				dns_journey->req_dns_pdu->questions);
+				dns_journey->p_req_dns_pdu->questions);
 		free_dns_journey(dns_journey);
 		return;
 	}
 
-	if (dns_journey->req_dns_pdu->answers > 0 ||
-		dns_journey->req_dns_pdu->authority > 0 ||
-		dns_journey->req_dns_pdu->additional > 0) {
+	if (dns_journey->p_req_dns_pdu->answers > 0 ||
+		dns_journey->p_req_dns_pdu->authority > 0 ||
+		dns_journey->p_req_dns_pdu->additional > 0) {
 		err_msg("the DNS REQUEST comes with unusual additional sections: "
 				"answers: %d, authority: %d, additional: %d. I ignore these "
 				"sections!",
-				dns_journey->req_dns_pdu->answers,
-				dns_journey->req_dns_pdu->authority,
-				dns_journey->req_dns_pdu->additional);
+				dns_journey->p_req_dns_pdu->answers,
+				dns_journey->p_req_dns_pdu->authority,
+				dns_journey->p_req_dns_pdu->additional);
 	}
 
+	dns_journey->p_req_name  = dns_journey->p_req_dns_pdu->questions_section[0]->name;
+	dns_journey->p_req_type  = dns_journey->p_req_dns_pdu->questions_section[0]->type;
+	dns_journey->p_req_class = dns_journey->p_req_dns_pdu->questions_section[0]->class;
+
 	/* save caller address */
-	memcpy(&dns_journey->req_ss, ss, sizeof(dns_journey->req_ss));
-	dns_journey->req_ss_len = ss_len;
+	memcpy(&dns_journey->p_req_ss, ss, sizeof(dns_journey->p_req_ss));
+	dns_journey->p_req_ss_len = ss_len;
 
 	pr_debug("packet is a valid DNS REQUEST, I process this question now");
 
@@ -198,8 +202,7 @@ static void process_dns_query(struct ctx *ctx, const char *packet, const size_t 
 		return;
 	}
 
-	return; /* SUCCESS */
-
+	return;
 }
 
 
@@ -228,7 +231,7 @@ static void incoming_request(int fd, int what, void *data)
 			err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
 		}
 		pr_debug("incoming packet on back-end port %d", DEFAULT_LISTEN_PORT);
-		process_dns_query(ctx, packet, rc, &ss, ss_len);
+		process_p_dns_query(ctx, packet, rc, &ss, ss_len);
 	}
 }
 

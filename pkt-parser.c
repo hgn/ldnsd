@@ -77,38 +77,38 @@ void free_dns_journey(struct dns_journey *x)
 {
 	int i;
 
-	if (x->req_dns_pdu) {
-		for (i = 0; i < x->req_dns_pdu->questions; i++) {
-			struct dns_sub_section *dns_s = x->req_dns_pdu->questions_section[i];
+	if (x->p_req_dns_pdu) {
+		for (i = 0; i < x->p_req_dns_pdu->questions; i++) {
+			struct dns_sub_section *dns_s = x->p_req_dns_pdu->questions_section[i];
 			if (dns_s->name)
 				free(dns_s->name);
 			free(dns_s);
 		}
-		for (i = 0; i < x->req_dns_pdu->answers; i++) {
-			struct dns_sub_section *dns_s = x->req_dns_pdu->answers_section[i];
+		for (i = 0; i < x->p_req_dns_pdu->answers; i++) {
+			struct dns_sub_section *dns_s = x->p_req_dns_pdu->answers_section[i];
 			if (dns_s->name)
 				free(dns_s->name);
 			free(dns_s);
 		}
-		for (i = 0; i < x->req_dns_pdu->authority; i++) {
-			struct dns_sub_section *dns_s = x->req_dns_pdu->authority_section[i];
+		for (i = 0; i < x->p_req_dns_pdu->authority; i++) {
+			struct dns_sub_section *dns_s = x->p_req_dns_pdu->authority_section[i];
 			if (dns_s->name)
 				free(dns_s->name);
 			free(dns_s);
 		}
-		for (i = 0; i < x->req_dns_pdu->additional; i++) {
-			struct dns_sub_section *dns_s = x->req_dns_pdu->additional_section[i];
+		for (i = 0; i < x->p_req_dns_pdu->additional; i++) {
+			struct dns_sub_section *dns_s = x->p_req_dns_pdu->additional_section[i];
 			if (dns_s->name)
 				free(dns_s->name);
 			free(dns_s);
 		}
 	}
 
-	if (x->req_name)
-		free(x->req_name);
+	if (x->p_req_name)
+		free(x->p_req_name);
 
-	if (x->req_packet)
-		free(x->req_packet);
+	if (x->p_req_packet)
+		free(x->p_req_packet);
 
 	if (x->res_dns_pdu) {
 		for (i = 0; i < x->res_dns_pdu->questions; i++) {

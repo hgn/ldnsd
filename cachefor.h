@@ -354,7 +354,28 @@ struct active_dns_request {
  * Last but not least we generate a active
  * respone and send it to the resolver. But
  * this data structure is really temporaer so
- * it is purely build on the stack */
+ * it is purely build on the stack.
+ *
+ * The following image illustrates the naming
+ * variable naming convention. p denotes passive
+ * and a denotes active behavior:
+ *
+ * Resolver          Cachefor       Upstream DNS daemon
+ *
+ *   |                  |                   |
+ *   |      p_req       |                   |
+ *   |----------------->|                   |
+ *   |                  |       a_req       |
+ *   |                  |------------------>|
+ *   |                  |                   |
+ *   |                  |       p_req       |
+ *   |                  |<------------------|
+ *   |      a_req       |                   |
+ *   |<-----------------|                   |
+ *   |                  |                   |
+ *
+ *
+ * */
 struct dns_journey {
 
 	/* the correspondent context */
@@ -362,19 +383,19 @@ struct dns_journey {
 
 	/* the following fields are completed before
 	   the request is transmitted to the ns */
-	struct dns_pdu *req_dns_pdu;
+	struct dns_pdu *p_req_dns_pdu;
 
 	/* the requested name, class and type */
-	char *req_name;
-	uint16_t req_type;
-	uint16_t req_class;
+	char *p_req_name;
+	uint16_t p_req_type;
+	uint16_t p_req_class;
 
-	char *req_packet;
-	size_t req_packet_len;
+	char *p_req_packet;
+	size_t p_req_packet_len;
 
 	/* caller origin */
-	struct sockaddr_storage req_ss;
-	socklen_t req_ss_len;
+	struct sockaddr_storage p_req_ss;
+	socklen_t p_req_ss_len;
 
 	char *s_req_packet;
 	size_t s_req_packet_len;

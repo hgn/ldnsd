@@ -324,12 +324,12 @@ static int internal_build_dns_request(const struct ctx *ctx, struct dns_journey 
 
 	(void) ctx;
 
-	if (!dnsj->req_name && strlen(dnsj->req_name) < MIN_DOMAIN_NAME_LEN)
+	if (!dnsj->p_req_name || strlen(dnsj->p_req_name) < MIN_DOMAIN_NAME_LEN)
 		return FAILURE;
 
-	req_name  = dnsj->req_name;
-	req_type  = dnsj->req_type;
-	req_class = dnsj->req_class;
+	req_name  = dnsj->p_req_name;
+	req_type  = dnsj->p_req_type;
+	req_class = dnsj->p_req_class;
 
 	pr_debug("build dns request packet");
 	request->id = get_random_id();
@@ -410,9 +410,9 @@ static int adns_request_match(const void *a, const void *b)
 	adns_req2 = b;
 
 	/* FIXME: add values checked */
-	if (adns_req1->req_type  == adns_req2->req_type  &&
-		adns_req1->req_class == adns_req2->req_class &&
-		(!strcmp(adns_req1->req_name, adns_req2->req_name)))
+	if (adns_req1->p_req_type  == adns_req2->p_req_type  &&
+		adns_req1->p_req_class == adns_req2->p_req_class &&
+		(!strcmp(adns_req1->p_req_name, adns_req2->p_req_name)))
 		return 1;
 
 	return 0;
@@ -455,9 +455,9 @@ static int search_adns_requests(void *req, void *dns_response)
 		r_type  = dnsss->type;
 		r_class = dnsss->class;
 
-		q_name  = adns_request->req_name;
-		q_type  = adns_request->req_type;
-		q_class = adns_request->req_class;
+		q_name  = adns_request->p_req_name;
+		q_type  = adns_request->p_req_type;
+		q_class = adns_request->p_req_class;
 
 		if ( (r_type == q_type)   &&
 			 (r_class == q_class) &&
