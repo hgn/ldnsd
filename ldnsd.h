@@ -16,8 +16,8 @@
 ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#ifndef CACHEFOR_H
-#define	CACHEFOR_H
+#ifndef LDNSD_H
+#define	LDNSD_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -334,7 +334,7 @@ struct dns_pdu_hndl {
  * variable naming convention. p denotes passive
  * and a denotes active behavior:
  *
- * Resolver          Cachefor      Foreign Name Server
+ * Resolver          LDNSD      Foreign Name Server
  *
  *   |                  |                   |
  *   |      p_req       |                   |
@@ -468,6 +468,6 @@ extern void free_dns_journey(struct dns_journey *);
 extern void free_dns_journey_list_entry(void *);
 extern void dns_packet_set_response_flag(char *);
 
-#endif /* CACHEFOR_H */
+#endif /* LDNSD_H */
 
 /* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

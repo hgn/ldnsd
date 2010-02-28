@@ -16,7 +16,7 @@
 ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#include "cachefor.h"
+#include "ldnsd.h"
 
 
 static int socket_bind(struct addrinfo *a)

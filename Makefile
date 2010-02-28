@@ -49,7 +49,7 @@ ifeq ($(shell sh -c "echo 'int foo(void) {char X[2]; return 3;}' | $(CC) -x c -c
 endif
 
 OBJ := ev.o \
-			 cachefor.o \
+			 ldnsd.o \
 			 clist.o \
 			 utils.o \
 			 nameserver.o \
@@ -58,7 +58,7 @@ OBJ := ev.o \
 			 hosts.o \
 			 pkt-parser.o
 
-TARGET := cachefor
+TARGET := ldnsd
 
 
 .SUFFIXES:
@@ -66,14 +66,15 @@ TARGET := cachefor
 
 all: $(TARGET)
 
-%.o : %.c cachefor.h hosts.h
+%.o : %.c ldnsd.h hosts.h
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
 
-cachefor: $(OBJ)
+$(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(EXTLIBS) -o $(TARGET) $(OBJ)
 
 clean:
 	-rm -f $(OBJ) $(TARGET) core
+	-rm -f cscope*
 
 cscope:
 	rm -f cscope*

@@ -16,7 +16,7 @@
 ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#include "cachefor.h"
+#include "ldnsd.h"
 
 
 
@@ -82,7 +82,7 @@ int main(void)
 	int ret, flags = 0;
 	struct ctx *ctx;
 
-	fprintf(stdout, "cachefor - a lighweight caching and forwarding DNS server (C) 2009\n");
+	fprintf(stdout, "ldnsd - a lighweight caching and forwarding DNS server (C) 2009\n");
 
 	ret = initiate_seed();
 	if (ret == FAILURE) {
