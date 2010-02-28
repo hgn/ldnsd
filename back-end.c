@@ -83,12 +83,48 @@ void fini_server_socket(int fd)
  * a) the cache return a positive answer (positive)
  * b) the transmitted request returned (positive)
  * c) the question timed out (negative)
- * d) the server replied negative (also negative) */
+ * d) the server replied negative (also negative)
+ *
+ * Main task of this function is to generate a
+ * new packet and send it to the resolver */
 static int response_cb(struct dns_journey *dnsj)
 {
-	(void) dnsj;
+	int ret;
+	ssize_t sret;
 
-	fprintf(stderr, "got a anwser\n");
+	pr_debug("got a anwser");
+
+	pr_debug("anwser contains following data: %u questions, %u answers,"
+			 " %u authority %u additional, entries",
+			 dnsj->p_res_dns_pdu->questions, dnsj->p_res_dns_pdu->answers,
+			 dnsj->p_res_dns_pdu->authority, dnsj->p_res_dns_pdu->additional);
+
+	pr_debug("size of answer section: %u", dnsj->p_res_dns_pdu->answers_section_len);
+
+	/* generate packet */
+	ret = clone_dns_pkt(dnsj->p_req_packet, dnsj->p_req_packet_len,
+			&dnsj->a_res_packet, dnsj->p_req_packet_len + dnsj->p_res_dns_pdu->answers_section_len);
+	if (ret != SUCCESS) {
+		err_msg_die(EXIT_FAILNET, "cannot generate a answer packet, clone_dns_pkt discovered"
+				" a internal error");
+	}
+
+	/* copy the answer at the directly after the and of the question */
+	memcpy(dnsj->a_res_packet + dnsj->p_req_packet_len, dnsj->p_res_dns_pdu->answers_section_ptr,
+			dnsj->p_res_dns_pdu->answers_section_len);
+
+	dns_packet_set_answer_no(dnsj->a_res_packet, dnsj->p_res_dns_pdu->answers);
+
+	/* set response flag */
+	dns_packet_set_response_flag(dnsj->a_res_packet);
+
+	sret = sendto(dnsj->ctx->client_server_socket, dnsj->a_res_packet,
+			dnsj->p_req_packet_len + dnsj->p_res_dns_pdu->answers_section_len, 0,
+			(struct sockaddr *)&dnsj->p_req_ss, dnsj->p_req_ss_len);
+	if (sret < 0) {
+		err_sys("failure in send a DNS answer back to the resolver");
+	}
+
 
 	return SUCCESS;
 }
@@ -187,6 +223,11 @@ static void process_p_dns_query(struct ctx *ctx, const char *packet, const size_
 	dns_journey->p_req_name  = dns_journey->p_req_dns_pdu->questions_section[0]->name;
 	dns_journey->p_req_type  = dns_journey->p_req_dns_pdu->questions_section[0]->type;
 	dns_journey->p_req_class = dns_journey->p_req_dns_pdu->questions_section[0]->class;
+
+	/* save original packet */
+	dns_journey->p_req_packet = xmalloc(len);
+	memcpy(dns_journey->p_req_packet, packet, len);
+	dns_journey->p_req_packet_len = len;
 
 	/* save caller address */
 	memcpy(&dns_journey->p_req_ss, ss, sizeof(dns_journey->p_req_ss));

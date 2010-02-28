@@ -34,9 +34,8 @@ static int internal_request_tx(struct ctx *ctx,
 
 	pr_debug("send active pdu request to nameserver via sendto");
 
-	ret = write(dnsj->ns->socket, dnsj->s_req_packet, dnsj->s_req_packet_len);
-
-	if (ret == (ssize_t)dnsj->s_req_packet_len)
+	ret = write(dnsj->ns->socket, dnsj->a_req_packet, dnsj->a_req_packet_len);
+	if (ret == (ssize_t)dnsj->a_req_packet_len)
 		return SUCCESS;
 
 	if (ret < 0) {
@@ -65,25 +64,6 @@ static int adns_list_add(const struct ctx *ctx, struct dns_journey *dnsj)
 	/* add the new reqest at the end of the list, the impact is
 	 * that previously added requests are executed in a FIFO ordering */
 	return list_insert_tail(ctx->waiting_request_list, dnsj);
-}
-
-static struct active_dns_request *adns_request_alloc(void)
-{
-	return xzalloc(sizeof(struct active_dns_request));
-}
-
-
-static void adns_request_free(void *req)
-{
-	struct active_dns_request *adns_req = req;
-
-	if (adns_req->name)
-		free(adns_req->name);
-
-	if (adns_req->pdu)
-		free(adns_req->pdu);
-
-	free(adns_req);
 }
 
 /* add the new reqest at the end of the list, the impact is
@@ -318,7 +298,7 @@ static int internal_build_dns_request(const struct ctx *ctx, struct dns_journey 
 {
 	int rlen;
 	unsigned char pdu[MAX_REQUEST_PDU_LEN];
-	struct dns_pdu *request = dnsj->res_dns_pdu;
+	struct dns_pdu *request = dnsj->a_req_dns_pdu;
 	const char *req_name;
 	uint16_t req_class, req_type;
 
@@ -339,10 +319,10 @@ static int internal_build_dns_request(const struct ctx *ctx, struct dns_journey 
 
 	pr_debug("build active dns request packet of size %d", rlen);
 
-	dnsj->s_req_packet     = xmalloc(rlen);
-	dnsj->s_req_packet_len = rlen;
+	dnsj->a_req_packet     = xmalloc(rlen);
+	dnsj->a_req_packet_len = rlen;
 
-	memcpy(dnsj->s_req_packet, pdu, rlen);
+	memcpy(dnsj->a_req_packet, pdu, rlen);
 
 	return SUCCESS;
 }
@@ -377,7 +357,7 @@ int active_dns_request_set(const struct ctx *ctx,
 	}
 	dnsj->status = ACTIVE_DNS_REQUEST_NEW;
 
-	dnsj->res_dns_pdu = xzalloc(sizeof(dnsj->res_dns_pdu));
+	dnsj->a_req_dns_pdu = xzalloc(sizeof(dnsj->a_req_dns_pdu));
 
 	ret = internal_build_dns_request(ctx, dnsj);
 	if (ret != SUCCESS) {
@@ -421,25 +401,22 @@ static int adns_request_match(const void *a, const void *b)
 
 int adns_request_init(struct ctx *ctx)
 {
-	ctx->waiting_request_list  = list_create(adns_request_match, adns_request_free);
-	ctx->inflight_request_list = list_create(adns_request_match, adns_request_free);
+	ctx->waiting_request_list  = list_create(adns_request_match, free_dns_journey_list_entry);
+	ctx->inflight_request_list = list_create(adns_request_match, free_dns_journey_list_entry);
 	return SUCCESS;
 }
 
 
 /* if we found the requested we return FAILURE to signal that
  * the list iteration can stop */
-static int search_adns_requests(void *req, void *dns_response)
+static int search_adns_requests(void *req, void *dns_pdu_tmp)
 {
 	int i;
-	struct dns_pdu *dns_pdu_r;
-	struct dns_response *dns_r = dns_response;
-	struct dns_journey *adns_request = req;
+	struct dns_journey *dns_j = req;
+	struct dns_pdu *dns_pdu_r = dns_pdu_tmp;
 	char *q_name, *r_name;
 	uint16_t q_type, r_type;
 	uint16_t q_class, r_class;
-
-	dns_pdu_r = dns_r->dns_pdu;
 
 	if (dns_pdu_r->questions != 1)
 		err_msg_die(EXIT_FAILINT, "internal error, should never happended"
@@ -455,28 +432,32 @@ static int search_adns_requests(void *req, void *dns_response)
 		r_type  = dnsss->type;
 		r_class = dnsss->class;
 
-		q_name  = adns_request->p_req_name;
-		q_type  = adns_request->p_req_type;
-		q_class = adns_request->p_req_class;
+		q_name  = dns_j->p_req_name;
+		q_type  = dns_j->p_req_type;
+		q_class = dns_j->p_req_class;
 
 		if ( (r_type == q_type)   &&
 			 (r_class == q_class) &&
 			 (!strcmp(r_name, q_name))) {
 
-			fprintf(stderr, "found in inflight list\n");
+			/* FIXME: validate packet (ID and port) */
+
 			/* ok, we found the element, now break
 			 * the list processing */
-			/* FIXME: at this point we must copy the required
-			 * elements from the server response */
-			adns_request->cb(adns_request);
+			dns_j->p_res_dns_pdu = dns_pdu_r;
+
+			/* this calls response_cb() for the server[TM] version
+			 * or a user defined callback in the case of a library
+			 * use */
+			dns_j->cb(dns_j);
 			return FAILURE;
 		}
 
 	}
 
-	fprintf(stderr, "dont find match");
-
-	/* signals that we did NOT found the searched entry */
+	/* Signals that we did NOT found the searched entry.
+	 * That means a nameserver sends a anwser for a questio
+	 * we never sent to the server. -- HGN */
 	return SUCCESS;
 }
 
@@ -501,15 +482,11 @@ static void process_dns_response(struct ctx *ctx, const char *packet, const size
 	(void) ss;
 	(void) ss_len;
 
-	dns_response = xzalloc(sizeof(*dns_response));
-
 	ret = parse_dns_packet(ctx, packet, len, &dns_pdu);
 	if (ret != SUCCESS) {
 		err_msg("received an malformed DNS packet, skipping this packet");
 		goto err;
 	}
-
-	dns_response->dns_pdu = dns_pdu;
 
 	if (dns_pdu->questions != 1) {
 		err_msg_die(EXIT_FAILNET, "nor then one question, we never reqest for more"
@@ -520,12 +497,6 @@ static void process_dns_response(struct ctx *ctx, const char *packet, const size
 		err_msg("incoming packet is no response packet");
 		goto err;
 	}
-
-	/* splice context to our dns query */
-	dns_response->ctx = ctx;
-
-	/* remember server error */
-	dns_response->err_code = FLAG_RCODE(dns_pdu->flags);
 
 	/* check for error code - regardless if a error occured
 	 * we generate a pdu and encode all values, but we pass
@@ -539,7 +510,7 @@ static void process_dns_response(struct ctx *ctx, const char *packet, const size
 	/* now search the inflight list, all relevant processing
 	 * is done in search_adns_requests */
 	list_for_each(ctx->inflight_request_list,
-			search_adns_requests, (void *)dns_response);
+			search_adns_requests, (void *)dns_pdu);
 
 
 	return;

@@ -126,7 +126,7 @@
 #define SUCCESS 0
 #define FAILURE -1
 
-#define	DEFAULT_LISTEN_PORT "6666"
+#define	DEFAULT_LISTEN_PORT "53"
 
 #define	RANDPOOLSRC "/dev/urandom"
 
@@ -178,9 +178,6 @@ enum active_dns_request_status {
 	ACTIVE_DNS_REQUEST_NEW = 1,
 	ACTIVE_DNS_REQUEST_IN_FLIGHT,
 };
-
-
-
 
 struct opts {
 	int verbose;
@@ -281,6 +278,20 @@ struct dns_pdu {
 	struct dns_sub_section **answers_section;
 	struct dns_sub_section **authority_section;
 	struct dns_sub_section **additional_section;
+
+	/* a pointer in the packet to the start of
+	 * the question section plus the length */
+	const char *questions_section_ptr;
+	size_t questions_section_len;
+
+	const char *answers_section_ptr;
+	size_t answers_section_len;
+
+	const char *authority_section_ptr;
+	size_t authority_section_len;
+
+	const char *additional_section_ptr;
+	size_t additional_section_len;
 };
 
 struct dns_pdu_hndl {
@@ -299,48 +310,6 @@ struct dns_pdu_hndl {
 
 	/* a pointer to the used nameserver */
 	struct nameserver *ns;
-};
-
-
-/* the data structure that is exchanged
- * between the frontend and the backend
- * and in the case this piece of software
- * is used as a library the dns_awnser is
- * passed to the caller */
-struct dns_response {
-
-	/* the err_code contains information if
-	 * a request was successful or not. If not
-	 * then the error code is also encoded here */
-	int err_code;
-	struct dns_pdu *dns_pdu;
-
-	/* the correspondent context */
-	struct ctx *ctx;
-};
-
-/* the dns request wrapper that is transmitted to a nameserver */
-struct active_dns_request {
-
-	int type;
-	int class;
-	char *name;
-
-	int status;
-
-	/* packet specific */
-	int16_t id;
-
-	/* the constructed actual packet */
-	char *pdu;
-	size_t pdu_len;
-
-	/* the used nameserver */
-	struct nameserver *ns;
-
-	/* this function is called if the dns request
-	 * was successful or a timeout occurred */
-	int (*cb)(struct dns_response *);
 };
 
 
@@ -368,9 +337,9 @@ struct active_dns_request {
  *   |                  |       a_req       |
  *   |                  |------------------>|
  *   |                  |                   |
- *   |                  |       p_req       |
+ *   |                  |       p_res       |
  *   |                  |<------------------|
- *   |      a_req       |                   |
+ *   |      a_res       |                   |
  *   |<-----------------|                   |
  *   |                  |                   |
  *
@@ -380,6 +349,8 @@ struct dns_journey {
 
 	/* the correspondent context */
 	struct ctx *ctx;
+
+	/* +++ Passive Request Section +++ */
 
 	/* the following fields are completed before
 	   the request is transmitted to the ns */
@@ -397,13 +368,29 @@ struct dns_journey {
 	struct sockaddr_storage p_req_ss;
 	socklen_t p_req_ss_len;
 
-	char *s_req_packet;
-	size_t s_req_packet_len;
 
+	/* ###
+	 * # Active Request Section */
+
+	char *a_req_packet;
+	size_t a_req_packet_len;
+	struct dns_pdu *a_req_dns_pdu;
+
+	/* ####
+	 * # Passive Response Section */
+
+	struct dns_pdu *p_res_dns_pdu;
+
+	/* ####
+	 * # Active Response Section */
+
+	char *a_res_packet;
+	size_t len;
+
+	/* ####
+	 * # Misc Variables */
 
 	int err_code;
-
-	struct dns_pdu *res_dns_pdu;
 
 	/* a pointer to the used nameserver */
 	struct nameserver *ns;
@@ -466,11 +453,15 @@ extern void fini_server_socket(int);
 extern int init_client_side(struct ctx *);
 
 /* pkt_parser.c */
+extern int clone_dns_pkt(char *, size_t, char **, size_t);
+extern void dns_packet_set_answer_no(char *, uint16_t);
 extern int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
 extern void free_dns_subsection(uint16_t, struct dns_sub_section **);
 extern void free_dns_pdu(struct dns_pdu *);
 extern void pretty_print_flags(FILE *, uint16_t);
 extern void free_dns_journey(struct dns_journey *);
+extern void free_dns_journey_list_entry(void *);
+extern void dns_packet_set_response_flag(char *);
 
 #endif /* CACHEFOR_H */
 

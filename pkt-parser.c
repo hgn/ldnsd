@@ -73,6 +73,27 @@
 #define	TYPE_OPT	41
 #endif
 
+int clone_dns_pkt(char *packet, size_t len, char **ret_pkt, size_t new_len)
+{
+	char *new_pkt;
+
+	if (new_len < len)
+		return FAILURE;
+
+	new_pkt = xzalloc(new_len);
+
+	memcpy(new_pkt, packet, len);
+
+	*ret_pkt = new_pkt;
+
+	return SUCCESS;
+}
+
+void free_dns_journey_list_entry(void *d)
+{
+	free_dns_journey(d);
+}
+
 void free_dns_journey(struct dns_journey *x)
 {
 	int i;
@@ -110,27 +131,30 @@ void free_dns_journey(struct dns_journey *x)
 	if (x->p_req_packet)
 		free(x->p_req_packet);
 
-	if (x->res_dns_pdu) {
-		for (i = 0; i < x->res_dns_pdu->questions; i++) {
-			struct dns_sub_section *dns_s = x->res_dns_pdu->questions_section[i];
+	/* this is our build packet structure to build
+	 * the data structure to active sent a packet
+	 * to a upstream DNS server */
+	if (x->a_req_dns_pdu) {
+		for (i = 0; i < x->a_req_dns_pdu->questions; i++) {
+			struct dns_sub_section *dns_s = x->a_req_dns_pdu->questions_section[i];
 			if (dns_s->name)
 				free(dns_s->name);
 			free(dns_s);
 		}
-		for (i = 0; i < x->res_dns_pdu->answers; i++) {
-			struct dns_sub_section *dns_s = x->res_dns_pdu->answers_section[i];
+		for (i = 0; i < x->a_req_dns_pdu->answers; i++) {
+			struct dns_sub_section *dns_s = x->a_req_dns_pdu->answers_section[i];
 			if (dns_s->name)
 				free(dns_s->name);
 			free(dns_s);
 		}
-		for (i = 0; i < x->res_dns_pdu->authority; i++) {
-			struct dns_sub_section *dns_s = x->res_dns_pdu->authority_section[i];
+		for (i = 0; i < x->a_req_dns_pdu->authority; i++) {
+			struct dns_sub_section *dns_s = x->a_req_dns_pdu->authority_section[i];
 			if (dns_s->name)
 				free(dns_s->name);
 			free(dns_s);
 		}
-		for (i = 0; i < x->res_dns_pdu->additional; i++) {
-			struct dns_sub_section *dns_s = x->res_dns_pdu->additional_section[i];
+		for (i = 0; i < x->a_req_dns_pdu->additional; i++) {
+			struct dns_sub_section *dns_s = x->a_req_dns_pdu->additional_section[i];
 			if (dns_s->name)
 				free(dns_s->name);
 			free(dns_s);
@@ -421,6 +445,19 @@ void free_dns_pdu(struct dns_pdu *dr)
 
 #define	MAX_DNS_NAME 256
 
+void dns_packet_set_answer_no(char *packet, uint16_t new_answer_no)
+{
+	uint16_t *ptr = packet + 6;
+	*ptr = ntohs(new_answer_no);
+}
+
+
+void dns_packet_set_response_flag(char *packet)
+{
+	uint16_t *flags = packet + 2;
+	*flags |= 0x8000;
+}
+
 
 int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		struct dns_pdu **dns_pdu)
@@ -454,6 +491,9 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 	if (dr->questions > 0) {
 
 		dr->questions_section = xzalloc(sizeof(struct dns_sub_section *) * dr->questions);
+
+		/* save offset of this section */
+		dr->questions_section_ptr = packet + i;
 
 		for (j = 0; j < dr->questions; j++) {
 			struct dns_sub_section *dnssq;
@@ -501,12 +541,17 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		}
 	}
 
+	dr->questions_section_len = i;
+
 	/* parse answers */
 	if (dr->answers > 0) {
 
 		dr->answers_section = xzalloc(sizeof(struct dns_sub_section *) * dr->answers);
 
-		for (j = 0; j < dr->questions; j++) {
+		/* save offset of this section */
+		dr->answers_section_ptr = packet + i;
+
+		for (j = 0; j < dr->answers; j++) {
 			struct dns_sub_section *dnssq;
 			char name[MAX_DNS_NAME];
 
@@ -553,12 +598,21 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		}
 	}
 
+	i += 4; /* ttl field */
+	i += 2; /* data length */
+	i += 4; /* answer ip address: the previous field provides the length (ipv4, ipv6) */
+
+	dr->answers_section_len = i - dr->questions_section_len;
+
 	/* parse authority */
 	if (dr->authority > 0) {
 
 		dr->authority_section = xzalloc(sizeof(struct dns_sub_section *) * dr->authority);
 
-		for (j = 0; j < dr->questions; j++) {
+		/* save offset of this section */
+		dr->authority_section_ptr = packet + i;
+
+		for (j = 0; j < dr->authority; j++) {
 			struct dns_sub_section *dnssq;
 			char name[MAX_DNS_NAME];
 
@@ -606,12 +660,17 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		}
 	}
 
+	dr->authority_section_len = i - dr->questions_section_len - dr->answers_section_len;
+
 	/* parse additional */
 	if (dr->additional > 0) {
 
 		dr->additional_section = xzalloc(sizeof(struct dns_sub_section *) * dr->additional);
 
-		for (j = 0; j < dr->questions; j++) {
+		/* save offset of this section */
+		dr->additional_section_ptr = packet + i;
+
+		for (j = 0; j < dr->additional; j++) {
 			struct dns_sub_section *dnssq;
 			char name[MAX_DNS_NAME];
 
@@ -659,6 +718,9 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 			}
 		}
 	}
+
+	dr->additional_section_len = i -
+		(dr->questions_section_len - dr->answers_section_len - dr->authority_section_len);
 
 	*dns_pdu = dr;
 	return SUCCESS;
