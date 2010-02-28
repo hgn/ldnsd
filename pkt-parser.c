@@ -343,6 +343,19 @@ static int get16(const char *data, size_t idx, size_t max, uint16_t *ret)
 	return 2;
 }
 
+
+static int getint32_t(const char *data, size_t idx, size_t max, int32_t *ret)
+{
+	int32_t tmp;
+
+	if (idx + 4 > max)
+		return FAILURE;
+
+	memcpy(&tmp, data + idx, 4);
+	*ret = ntohl(tmp);
+	return 4;
+}
+
 #define	PTR_MASK 0xc0
 #define	IS_PTR(x) (x & PTR_MASK)
 
@@ -459,10 +472,36 @@ void dns_packet_set_response_flag(char *packet)
 }
 
 
+/* returns the number of bytes for the parsed section
+ * or 0 in the case of an error
+ */
+static unsigned parse_rr_section(struct ctx *ctx, char *packet, unsigned offset, struct dns_pdu **dns_pdu)
+{
+}
+
+
+/* parse_dns_packet parses a standard DNS packet and
+   fills the dns_pdu structure.
+
+   The format of a DNS packet is specified in
+   4.1. Format ( http://tools.ietf.org/html/rfc1035 ):
+
+    +---------------------+
+    |        Header       |
+    +---------------------+
+    |       Question      | the question for the name server
+    +---------------------+
+    |        Answer       | RRs answering the question
+    +---------------------+
+    |      Authority      | RRs pointing toward an authority
+    +---------------------+
+    |      Additional     | RRs holding additional information
+    +---------------------+
+*/
 int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		struct dns_pdu **dns_pdu)
 {
-	int i = 0, ii, j;
+	int i = 0, j;
 	struct dns_pdu *dr;
 
 	(void) ctx;
@@ -487,6 +526,31 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		return FAILURE;
 	}
 
+	/*
+	   See 3.2.1. Format (http://tools.ietf.org/html/rfc1035)
+
+	   1  1  1  1  1  1
+	   0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                                               |
+	   /                                               /
+	   /                      NAME                     /
+	   |                                               |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                      TYPE                     |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                     CLASS                     |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                      TTL                      |
+	   |                                               |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                   RDLENGTH                    |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
+	   /                     RDATA                     /
+	   /                                               /
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   */
+
 	/* parse queuestions */
 	if (dr->questions > 0) {
 
@@ -499,14 +563,13 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 			struct dns_sub_section *dnssq;
 			char name[MAX_DNS_NAME];
 
-			ii = get_name(packet, i, len, name, MAX_DNS_NAME);
-			if (ii == FAILURE) {
+			i = get_name(packet, i, len, name, MAX_DNS_NAME);
+			if (i == FAILURE) {
 				err_msg("corrupted name format");
 				return FAILURE;
 			}
-			i = ii;
 
-			pr_debug("parsed name: %s (new offset: %d)", name, ii);
+			pr_debug("parsed name: %s (new offset: %d)", name, i);
 
 			dnssq = xzalloc(sizeof(struct dns_sub_section));
 
@@ -555,27 +618,33 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 			struct dns_sub_section *dnssq;
 			char name[MAX_DNS_NAME];
 
-			ii = get_name(packet, i, len, name, MAX_DNS_NAME);
-			if (ii == FAILURE) {
+			i = get_name(packet, i, len, name, MAX_DNS_NAME);
+			if (i == FAILURE) {
 				err_msg("corrupted name format");
 				return FAILURE;
 			}
-			i = ii;
 
-			pr_debug("parsed name: %s (new offset: %d)", name, ii);
+			pr_debug("parsed name: %s (new offset: %d)", name, i);
 
 			dnssq = xzalloc(sizeof(struct dns_sub_section));
 
-			i += get16(packet, i, len, &dnssq->type);
-			i += get16(packet, i, len, &dnssq->class);
-
-			pr_debug("parsed type: %s, parsed class: %s",
-					type_to_str(dnssq->type), class_to_str(dnssq->class));
-
+			/* save name */
 			dnssq->name = xzalloc(strlen(name) + 1);
-
 			memcpy(dnssq->name, name, strlen(name) + 1);
 
+			i += get16(packet, i, len, &dnssq->type);
+			i += get16(packet, i, len, &dnssq->class);
+			i += getint32_t(packet, i, len, &dnssq->ttl);
+			i += get16(packet, i, len, &dnssq->rdlength);
+
+			pr_debug("parsed type: %s, parsed class: %s ttl: %u rdlength: %u",
+					type_to_str(dnssq->type), class_to_str(dnssq->class),
+					dnssq->ttl, dnssq->rdlength);
+
+			/* skip data for offset variable */
+			i += dnssq->rdlength;
+
+			/* splice this section */
 			dr->answers_section[j] = dnssq;
 
 			/* XXX: the error check is here to simplify the
@@ -598,10 +667,6 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		}
 	}
 
-	i += 4; /* ttl field */
-	i += 2; /* data length */
-	i += 4; /* answer ip address: the previous field provides the length (ipv4, ipv6) */
-
 	dr->answers_section_len = i - dr->questions_section_len;
 
 	/* parse authority */
@@ -616,14 +681,13 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 			struct dns_sub_section *dnssq;
 			char name[MAX_DNS_NAME];
 
-			ii = get_name(packet, i, len, name, MAX_DNS_NAME);
-			if (ii == FAILURE) {
+			i = get_name(packet, i, len, name, MAX_DNS_NAME);
+			if (i == FAILURE) {
 				err_msg("corrupted name format");
 				return FAILURE;
 			}
-			i = ii;
 
-			pr_debug("parsed name: %s (new offset: %d)", name, ii);
+			pr_debug("parsed name: %s (new offset: %d)", name, i);
 
 			dnssq = xzalloc(sizeof(struct dns_sub_section));
 
@@ -674,14 +738,13 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 			struct dns_sub_section *dnssq;
 			char name[MAX_DNS_NAME];
 
-			ii = get_name(packet, i, len, name, MAX_DNS_NAME);
-			if (ii == FAILURE) {
+			i = get_name(packet, i, len, name, MAX_DNS_NAME);
+			if (i == FAILURE) {
 				err_msg("corrupted name format");
 				return FAILURE;
 			}
-			i = ii;
 
-			pr_debug("parsed name: %s (new offset: %d)", name, ii);
+			pr_debug("parsed name: %s (new offset: %d)", name, i);
 
 			dnssq = xzalloc(sizeof(struct dns_sub_section));
 

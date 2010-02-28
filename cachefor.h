@@ -260,6 +260,14 @@ struct dns_sub_section {
 	char *name; /* the already restructed label */
 	uint16_t type;
 	uint16_t class;
+
+	/* ttl specifies the time interval that the resource record
+	 * may be cached before the source of the information should
+	 * again be consulted. Zero values are interpreted to mean
+	 * that the RR can only be used for the transaction in progress
+	 */
+	int32_t ttl;
+	uint16_t rdlength;
 };
 
 struct dns_pdu {
