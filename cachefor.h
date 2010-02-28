@@ -126,7 +126,7 @@
 #define SUCCESS 0
 #define FAILURE -1
 
-#define	DEFAULT_LISTEN_PORT "53"
+#define	DEFAULT_LISTEN_PORT "6666"
 
 #define	RANDPOOLSRC "/dev/urandom"
 
@@ -329,7 +329,7 @@ struct dns_pdu_hndl {
  * variable naming convention. p denotes passive
  * and a denotes active behavior:
  *
- * Resolver          Cachefor       Upstream DNS daemon
+ * Resolver          Cachefor      Foreign Name Server
  *
  *   |                  |                   |
  *   |      p_req       |                   |
