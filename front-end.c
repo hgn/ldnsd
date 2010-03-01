@@ -411,7 +411,7 @@ int adns_request_init(struct ctx *ctx)
  * the list iteration can stop */
 static int search_adns_requests(void *req, void *dns_pdu_tmp)
 {
-	int i;
+	int i, ret;
 	struct dns_journey *dns_j = req;
 	struct dns_pdu *dns_pdu_r = dns_pdu_tmp;
 	char *q_name, *r_name;
@@ -426,6 +426,7 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 	/* check if type, class and name matches */
 	for (i = 0; i < dns_pdu_r->questions; i++) {
 		struct dns_sub_section *dnsss = dns_pdu_r->questions_section[i];
+		struct dns_journey *dns_j_match;
 
 		/* FIXME: copy and free the name */
 		r_name  = dnsss->name;
@@ -450,6 +451,19 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 			 * or a user defined callback in the case of a library
 			 * use */
 			dns_j->cb(dns_j);
+
+			/* ok, now remove the element from the inflight
+			 * list because we get the answer from the server */
+			dns_j_match = dns_j;
+			ret = list_remove(dns_j->ctx->inflight_request_list, (void **)&dns_j_match);
+			if (ret != SUCCESS || dns_j_match != dns_j) {
+				err_msg_die(EXIT_FAILINT, "failure in list remove of inflight list");
+			}
+
+			/* now delete/free the journey data structure, everything
+			 * is handled and the process for this journey is closed */
+			free_dns_journey(dns_j);
+
 			return FAILURE;
 		}
 
