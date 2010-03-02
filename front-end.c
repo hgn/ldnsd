@@ -277,16 +277,16 @@ static int evdns_request_data_build(const char *const name, const int name_len,
 	APPEND16(0);  /* no additional */
 
 	j = dnsname_to_labels(buf, buf_len, j, name, name_len, NULL);
-	if (j < 0) {
-		return (int)j;
-	}
+	if (j < 0)
+		return j;
 
 	APPEND16(type);
 	APPEND16(class);
 
-	return (int)j;
+	return j;
+
  overflow:
-	return (-1);
+	return -1;
 }
 
 
@@ -311,13 +311,13 @@ static int internal_build_dns_request(const struct ctx *ctx, struct dns_journey 
 	req_type  = dnsj->p_req_type;
 	req_class = dnsj->p_req_class;
 
-	pr_debug("build dns request packet");
 	request->id = get_random_id();
 
 	rlen = evdns_request_data_build(req_name, strlen(req_name), request->id,
 	    req_type, req_class, pdu, MAX_REQUEST_PDU_LEN);
 
-	pr_debug("build active dns request packet of size %d", rlen);
+	pr_debug("build active dns request packet of size %d, id: %u",
+			rlen, request->id);
 
 	dnsj->a_req_packet     = xmalloc(rlen);
 	dnsj->a_req_packet_len = rlen;
@@ -452,8 +452,12 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 			 * use */
 			dns_j->cb(dns_j);
 
-			/* ok, now remove the element from the inflight
-			 * list because we get the answer from the server */
+			/* ok, now remove the element from the inflight list because we
+			 * get the answer from the server.  FIXME: the current list
+			 * implementation is a little bit awkward.  The list remove
+			 * function iterate over the whole list a second time even though
+			 * we had already found the right element - we know it is there
+			 * and where it is. This must be fixed  --HGN */
 			dns_j_match = dns_j;
 			ret = list_remove(dns_j->ctx->inflight_request_list, (void **)&dns_j_match);
 			if (ret != SUCCESS || dns_j_match != dns_j) {
