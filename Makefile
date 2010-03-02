@@ -1,5 +1,12 @@
 EPOLL :=1 
 
+CC = gcc
+AR = ar
+RM = rm -f
+TAR = tar
+FIND = find
+INSTALL = install
+
 EXTRA_WARNINGS := -Wformat
 EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wall
 EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wextra
@@ -74,9 +81,13 @@ $(TARGET): $(OBJ)
 
 clean:
 	-rm -f $(OBJ) $(TARGET) core
-	-rm -f cscope*
+	-rm -f cscope* tags
 
 cscope:
 	rm -f cscope*
 	find . -name '*.[hcS]' -print0 | xargs -0 cscope -b
+
+tags:
+	$(RM) tags
+	$(FIND) . -name '*.[hcS]' -print | xargs ctags -a
 
