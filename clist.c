@@ -101,18 +101,19 @@ list_lookup(struct list *list, void **data)
 int list_for_each(struct list *list,
 		int (*func)(void *data, void *userdata), void *userdata)
 {
-	struct list_element *element;
+	struct list_element *element, *next_elem;
 	int retval = 0;
 	void *data;
 
 	for (element = list_head(list);
-		 element != NULL && retval == 0;
-		 element = list_next(element)) {
+		 element != NULL && retval == 0;) {
+		 next_elem = list_next(element);
 
 		data = element->data;
 		retval = func(data, userdata);
 		if (retval != SUCCESS)
 			return FAILURE;
+		element = next_elem;
 	}
 
 	return SUCCESS;
