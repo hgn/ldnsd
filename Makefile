@@ -63,7 +63,8 @@ OBJ := ev.o \
 			 back-end.o \
 			 front-end.o \
 			 hosts.o \
-			 pkt-parser.o
+			 pkt-parser.o \
+			 cli-opts.o
 
 TARGET := ldnsd
 

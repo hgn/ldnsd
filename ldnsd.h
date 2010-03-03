@@ -179,14 +179,24 @@ enum active_dns_request_status {
 	ACTIVE_DNS_REQUEST_IN_FLIGHT,
 };
 
-struct opts {
-	int verbose;
+enum {
+	O_QUITSCENT = 0,
+	O_GENTLE,
+	O_VERBOSE,
+	O_DEBUG
+};
+
+struct cli_opts {
+	/* daemon common values */
+	char *me;
+	int verbose_level;
+	char *rc_path;
 };
 
 struct ctx {
 	struct ev *ev_hndl;
 	struct list *nameserver_list;
-	struct opts opts;
+	struct cli_opts cli_opts;
 
 	/* new constructed DNS REQUESTS who are
 	 * waiting for transmission are enqueued in
@@ -475,6 +485,10 @@ extern void free_dns_journey(struct dns_journey *);
 extern void free_dns_journey_list_entry(void *);
 extern void dns_packet_set_response_flag(char *);
 void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
+
+/* cli_opts.c */
+int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
+void free_cli_opts(struct cli_opts *);
 
 #endif /* LDNSD_H */
 

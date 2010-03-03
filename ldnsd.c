@@ -77,7 +77,7 @@ static void free_ctx(struct ctx *c)
 }
 
 
-int main(void)
+int main(int ac, char **av)
 {
 	int ret, flags = 0;
 	struct ctx *ctx;
@@ -93,21 +93,25 @@ int main(void)
 
 	ctx->ev_hndl = ev_init_hdntl();
 
+	ret = parse_cli_options(ctx, &ctx->cli_opts, ac, av);
+	if (ret != SUCCESS)
+		err_msg_die(EXIT_FAILOPT, "failure in commandline argument");
+
 	ret = init_server_side(ctx);
-	if (ret != SUCCESS) {
+	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize server side");
-	}
 
 	ret = init_client_side(ctx);
-	if (ret != SUCCESS) {
+	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize client side");
-	}
 
 	ev_loop(ctx->ev_hndl, flags);
 
 	fini_server_socket(ctx->client_server_socket);
 
 	ev_free_hndl(ctx->ev_hndl);
+
+	free_cli_opts(&ctx->cli_opts);
 
 	free_ctx(ctx);
 
