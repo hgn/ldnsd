@@ -125,9 +125,6 @@ void free_dns_journey(struct dns_journey *x)
 		}
 	}
 
-	if (x->p_req_name)
-		free(x->p_req_name);
-
 	if (x->p_req_packet)
 		free(x->p_req_packet);
 
