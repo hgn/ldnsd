@@ -99,64 +99,154 @@ void free_dns_journey(struct dns_journey *x)
 	int i;
 
 	if (x->p_req_dns_pdu) {
-		for (i = 0; i < x->p_req_dns_pdu->questions; i++) {
-			struct dns_sub_section *dns_s = x->p_req_dns_pdu->questions_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
+
+		if (x->p_req_dns_pdu->questions) {
+			for (i = 0; i < x->p_req_dns_pdu->questions; i++) {
+				struct dns_sub_section *dns_s = x->p_req_dns_pdu->questions_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->p_req_dns_pdu->questions_section);
 		}
-		for (i = 0; i < x->p_req_dns_pdu->answers; i++) {
-			struct dns_sub_section *dns_s = x->p_req_dns_pdu->answers_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
+
+		if (x->p_req_dns_pdu->questions) {
+			for (i = 0; i < x->p_req_dns_pdu->answers; i++) {
+				struct dns_sub_section *dns_s = x->p_req_dns_pdu->answers_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->p_req_dns_pdu->answers_section);
 		}
-		for (i = 0; i < x->p_req_dns_pdu->authority; i++) {
-			struct dns_sub_section *dns_s = x->p_req_dns_pdu->authority_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
+
+		if (x->p_req_dns_pdu->authority) {
+			for (i = 0; i < x->p_req_dns_pdu->authority; i++) {
+				struct dns_sub_section *dns_s = x->p_req_dns_pdu->authority_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->p_req_dns_pdu->authority_section);
 		}
-		for (i = 0; i < x->p_req_dns_pdu->additional; i++) {
-			struct dns_sub_section *dns_s = x->p_req_dns_pdu->additional_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
+
+		if (x->p_req_dns_pdu->additional) {
+			for (i = 0; i < x->p_req_dns_pdu->additional; i++) {
+				struct dns_sub_section *dns_s = x->p_req_dns_pdu->additional_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->p_req_dns_pdu->additional_section);
 		}
+
+		free(x->p_req_packet);
 	}
 
-	if (x->p_req_packet)
-		free(x->p_req_packet);
 
 	/* this is our build packet structure to build
 	 * the data structure to active sent a packet
 	 * to a upstream DNS server */
 	if (x->a_req_dns_pdu) {
-		for (i = 0; i < x->a_req_dns_pdu->questions; i++) {
-			struct dns_sub_section *dns_s = x->a_req_dns_pdu->questions_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
+
+		if (x->a_req_dns_pdu->questions) {
+			for (i = 0; i < x->a_req_dns_pdu->questions; i++) {
+				struct dns_sub_section *dns_s = x->a_req_dns_pdu->questions_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->a_req_dns_pdu->questions_section);
 		}
-		for (i = 0; i < x->a_req_dns_pdu->answers; i++) {
-			struct dns_sub_section *dns_s = x->a_req_dns_pdu->answers_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
+
+		if (x->a_req_dns_pdu->answers) {
+			for (i = 0; i < x->a_req_dns_pdu->answers; i++) {
+				struct dns_sub_section *dns_s = x->a_req_dns_pdu->answers_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->a_req_dns_pdu->answers_section);
 		}
-		for (i = 0; i < x->a_req_dns_pdu->authority; i++) {
-			struct dns_sub_section *dns_s = x->a_req_dns_pdu->authority_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
+
+		if (x->a_req_dns_pdu->authority) {
+			for (i = 0; i < x->a_req_dns_pdu->authority; i++) {
+				struct dns_sub_section *dns_s = x->a_req_dns_pdu->authority_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->a_req_dns_pdu->authority_section);
 		}
-		for (i = 0; i < x->a_req_dns_pdu->additional; i++) {
-			struct dns_sub_section *dns_s = x->a_req_dns_pdu->additional_section[i];
-			if (dns_s->name)
-				free(dns_s->name);
-			free(dns_s);
+
+		if (x->a_req_dns_pdu->additional) {
+			for (i = 0; i < x->a_req_dns_pdu->additional; i++) {
+				struct dns_sub_section *dns_s = x->a_req_dns_pdu->additional_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->a_req_dns_pdu->additional_section);
 		}
+
+		free(x->a_req_dns_pdu);
 	}
+
+	if (x->p_res_dns_pdu) {
+
+		if (x->p_res_dns_pdu->questions) {
+			for (i = 0; i < x->p_res_dns_pdu->questions; i++) {
+				struct dns_sub_section *dns_s = x->p_res_dns_pdu->questions_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->p_res_dns_pdu->questions_section);
+		}
+
+		if (x->p_res_dns_pdu->answers) {
+			for (i = 0; i < x->p_res_dns_pdu->answers; i++) {
+				struct dns_sub_section *dns_s = x->p_res_dns_pdu->answers_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->p_res_dns_pdu->answers_section);
+		}
+
+		if (x->p_res_dns_pdu->authority) {
+			for (i = 0; i < x->p_res_dns_pdu->authority; i++) {
+				struct dns_sub_section *dns_s = x->p_res_dns_pdu->authority_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->p_res_dns_pdu->authority_section);
+		}
+
+		if (x->p_res_dns_pdu->additional) {
+			for (i = 0; i < x->p_res_dns_pdu->additional; i++) {
+				struct dns_sub_section *dns_s = x->p_res_dns_pdu->additional_section[i];
+				if (dns_s->name)
+					free(dns_s->name);
+				free(dns_s);
+			}
+			free(x->p_res_dns_pdu->additional_section);
+		}
+
+		free(x->p_res_dns_pdu);
+	}
+
+	if (x->p_req_dns_pdu)
+		free(x->p_req_dns_pdu);
+
+	if (x->a_req_packet)
+		free(x->a_req_packet);
+
+	if (x->a_res_packet)
+		free(x->a_res_packet);
+
+	free(x); x = NULL;
 }
 
 /* convert the most common types to names */
