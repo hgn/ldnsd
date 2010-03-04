@@ -160,6 +160,12 @@ void *xzalloc(size_t size)
 }
 
 
+void xfree(void *ptr)
+{
+	free(ptr); ptr = NULL;
+}
+
+
 void xsetsockopt(int s, int level, int optname,
 		const void *optval, socklen_t optlen, const char *str)
 {

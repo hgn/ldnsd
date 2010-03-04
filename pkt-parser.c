@@ -185,13 +185,13 @@ void free_dns_journey(struct dns_journey *x)
 			for (i = 0; i < x->a_req_dns_pdu->additional; i++) {
 				struct dns_sub_section *dns_s = x->a_req_dns_pdu->additional_section[i];
 				if (dns_s->name)
-					free(dns_s->name);
-				free(dns_s);
+					xfree(dns_s->name);
+				xfree(dns_s);
 			}
-			free(x->a_req_dns_pdu->additional_section);
+			xfree(x->a_req_dns_pdu->additional_section);
 		}
 
-		free(x->a_req_dns_pdu);
+		xfree(x->a_req_dns_pdu);
 	}
 
 	if (x->p_res_dns_pdu) {
@@ -200,55 +200,55 @@ void free_dns_journey(struct dns_journey *x)
 			for (i = 0; i < x->p_res_dns_pdu->questions; i++) {
 				struct dns_sub_section *dns_s = x->p_res_dns_pdu->questions_section[i];
 				if (dns_s->name)
-					free(dns_s->name);
-				free(dns_s);
+					xfree(dns_s->name);
+				xfree(dns_s);
 			}
-			free(x->p_res_dns_pdu->questions_section);
+			xfree(x->p_res_dns_pdu->questions_section);
 		}
 
 		if (x->p_res_dns_pdu->answers) {
 			for (i = 0; i < x->p_res_dns_pdu->answers; i++) {
 				struct dns_sub_section *dns_s = x->p_res_dns_pdu->answers_section[i];
 				if (dns_s->name)
-					free(dns_s->name);
-				free(dns_s);
+					xfree(dns_s->name);
+				xfree(dns_s);
 			}
-			free(x->p_res_dns_pdu->answers_section);
+			xfree(x->p_res_dns_pdu->answers_section);
 		}
 
 		if (x->p_res_dns_pdu->authority) {
 			for (i = 0; i < x->p_res_dns_pdu->authority; i++) {
 				struct dns_sub_section *dns_s = x->p_res_dns_pdu->authority_section[i];
 				if (dns_s->name)
-					free(dns_s->name);
-				free(dns_s);
+					xfree(dns_s->name);
+				xfree(dns_s);
 			}
-			free(x->p_res_dns_pdu->authority_section);
+			xfree(x->p_res_dns_pdu->authority_section);
 		}
 
 		if (x->p_res_dns_pdu->additional) {
 			for (i = 0; i < x->p_res_dns_pdu->additional; i++) {
 				struct dns_sub_section *dns_s = x->p_res_dns_pdu->additional_section[i];
 				if (dns_s->name)
-					free(dns_s->name);
-				free(dns_s);
+					xfree(dns_s->name);
+				xfree(dns_s);
 			}
-			free(x->p_res_dns_pdu->additional_section);
+			xfree(x->p_res_dns_pdu->additional_section);
 		}
 
-		free(x->p_res_dns_pdu);
+		xfree(x->p_res_dns_pdu);
 	}
 
 	if (x->p_req_dns_pdu)
-		free(x->p_req_dns_pdu);
+		xfree(x->p_req_dns_pdu);
 
 	if (x->a_req_packet)
-		free(x->a_req_packet);
+		xfree(x->a_req_packet);
 
 	if (x->a_res_packet)
-		free(x->a_res_packet);
+		xfree(x->a_res_packet);
 
-	free(x); x = NULL;
+	xfree(x); x = NULL;
 }
 
 /* convert the most common types to names */
@@ -528,10 +528,10 @@ void free_dns_subsection(uint16_t no, struct dns_sub_section **dss)
 		return;
 
 	for (i = 0; i < no; i++) {
-		free(dss[i]->name);
-		free(dss[i]);
+		xfree(dss[i]->name);
+		xfree(dss[i]);
 	}
-	free(dss);
+	xfree(dss);
 }
 
 
@@ -542,7 +542,7 @@ void free_dns_pdu(struct dns_pdu *dr)
 	free_dns_subsection(dr->answers, dr->answers_section);
 	free_dns_subsection(dr->authority, dr->authority_section);
 	free_dns_subsection(dr->additional, dr->additional_section);
-	free(dr);
+	xfree(dr);
 }
 
 
@@ -669,7 +669,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 
 	if (dr->answers == 0 && dr->questions == 0 &&
 		dr->authority == 0 && dr->additional == 0) {
-		free(dr);
+		xfree(dr);
 		*dns_pdu = NULL;
 		return FAILURE;
 	}
@@ -742,11 +742,11 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 
 				/* free all allocated memory */
 				for ( ; j >= 0; j--) {
-					free(dr->questions_section[j]->name);
-					free(dr->questions_section[j]);
+					xfree(dr->questions_section[j]->name);
+					xfree(dr->questions_section[j]);
 				}
-				free(dr->questions_section);
-				free(dr);
+				xfree(dr->questions_section);
+				xfree(dr);
 				return FAILURE;
 			}
 		}
@@ -784,11 +784,11 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 err_answer:
 				/* free all allocated memory */
 				for ( ; j >= 0; j--) {
-					free(dr->answers_section[j]->name);
-					free(dr->answers_section[j]);
+					xfree(dr->answers_section[j]->name);
+					xfree(dr->answers_section[j]);
 				}
-				free(dr->answers_section);
-				free(dr);
+				xfree(dr->answers_section);
+				xfree(dr);
 				free_dns_subsection(dr->questions, dr->questions_section);
 				return FAILURE;
 			}
@@ -826,11 +826,11 @@ err_answer:
 err_authority:
 				/* free all allocated memory */
 				for ( ; j >= 0; j--) {
-					free(dr->authority_section[j]->name);
-					free(dr->authority_section[j]);
+					xfree(dr->authority_section[j]->name);
+					xfree(dr->authority_section[j]);
 				}
-				free(dr->authority_section);
-				free(dr);
+				xfree(dr->authority_section);
+				xfree(dr);
 				free_dns_subsection(dr->questions, dr->questions_section);
 				free_dns_subsection(dr->answers, dr->answers_section);
 				return FAILURE;
@@ -869,11 +869,11 @@ err_authority:
 err_additional:
 				/* free all allocated memory */
 				for ( ; j >= 0; j--) {
-					free(dr->additional_section[j]->name);
-					free(dr->additional_section[j]);
+					xfree(dr->additional_section[j]->name);
+					xfree(dr->additional_section[j]);
 				}
-				free(dr->additional_section);
-				free(dr);
+				xfree(dr->additional_section);
+				xfree(dr);
 				free_dns_subsection(dr->questions, dr->questions_section);
 				free_dns_subsection(dr->answers, dr->answers_section);
 				free_dns_subsection(dr->authority, dr->authority_section);

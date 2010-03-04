@@ -469,6 +469,7 @@ extern int subtime(struct timeval *, struct timeval *, struct timeval *);
 extern int xatoi(const char *);
 extern void * xmalloc(size_t);
 extern void *xzalloc(size_t);
+extern void xfree(void *);
 extern int nodelay(int, int);
 extern void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct addrinfo **);
 extern char *xstrdup(const char *);

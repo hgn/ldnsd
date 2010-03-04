@@ -357,7 +357,7 @@ int active_dns_request_set(const struct ctx *ctx,
 	}
 	dnsj->status = ACTIVE_DNS_REQUEST_NEW;
 
-	dnsj->a_req_dns_pdu = xzalloc(sizeof(dnsj->a_req_dns_pdu));
+	dnsj->a_req_dns_pdu = xzalloc(sizeof(*dnsj->a_req_dns_pdu));
 
 	ret = internal_build_dns_request(ctx, dnsj);
 	if (ret != SUCCESS) {
