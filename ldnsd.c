@@ -17,6 +17,7 @@
 */
 
 #include "ldnsd.h"
+#include "rc.h"
 
 
 
@@ -96,6 +97,16 @@ int main(int ac, char **av)
 	ret = parse_cli_options(ctx, &ctx->cli_opts, ac, av);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILOPT, "failure in commandline argument");
+
+	if (ctx->cli_opts.rc_path) {
+		/* currently there is no need to specify a configuration
+		 * file, the functionality is simple enough to run without
+		 * any arguments, if things change we can enfore a configuration
+		 * file --HGN */
+		ret = parse_rc_file(ctx);
+		if (ret != SUCCESS)
+			err_msg_die(EXIT_FAILURE, "Can't parse configuration file");
+	}
 
 	ret = init_server_side(ctx);
 	if (ret != SUCCESS)

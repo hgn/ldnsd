@@ -118,7 +118,8 @@
 #define	EXIT_FAILNET    4
 #define	EXIT_FAILHEADER 6
 #define	EXIT_FAILEVENT  7
-#define	EXIT_FAILINT    8 /* INTernal error */
+#define	EXIT_FAILCONF   8
+#define	EXIT_FAILINT    9 /* INTernal error */
 
 /* determine the size of an array */
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -127,6 +128,11 @@
 #define FAILURE -1
 
 #define	DEFAULT_LISTEN_PORT "6666"
+
+/* forwarder defaults (google ns) */
+#define	DEFAULT_NS "8.8.8.8"
+#define	DEFAULT_NS_PORT "53"
+
 
 #define	RANDPOOLSRC "/dev/urandom"
 
@@ -191,6 +197,12 @@ struct cli_opts {
 	char *me;
 	int verbose_level;
 	char *rc_path;
+
+	char *port;
+
+	/* where to forward incoming DNS requests */
+	char *forwarder_addr;
+	char *forwarder_port;
 };
 
 struct ctx {

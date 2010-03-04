@@ -64,6 +64,9 @@ OBJ := ev.o \
 			 front-end.o \
 			 hosts.o \
 			 pkt-parser.o \
+			 parser.tab.o \
+			 lex.yy.o     \
+			 rc.o         \
 			 cli-opts.o
 
 TARGET := ldnsd
@@ -74,6 +77,12 @@ TARGET := ldnsd
 
 all: $(TARGET)
 
+lex.yy.c: lexer.l
+	flex lexer.l
+
+parser.tab.c: parser.y
+	bison -d parser.y
+
 %.o : %.c ldnsd.h hosts.h
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
 
@@ -81,7 +90,7 @@ $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(EXTLIBS) -o $(TARGET) $(OBJ)
 
 clean:
-	-rm -f $(OBJ) $(TARGET) core
+	-rm -f $(OBJ) $(TARGET) core lex.yy.c parser.tab.h parser.tab.c *~
 	-rm -f cscope* tags
 
 cscope:

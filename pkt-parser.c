@@ -98,6 +98,8 @@ void free_dns_journey(struct dns_journey *x)
 {
 	int i;
 
+	pr_debug("free dns_journey");
+
 	if (x->p_req_dns_pdu) {
 
 		if (x->p_req_dns_pdu->questions) {

@@ -121,7 +121,8 @@ int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port,
 
 	freeaddrinfo(hostres);
 
-	pr_debug("successful connect UDP socket with nameserver %s", ns_str);
+	pr_debug("successful connect UDP socket with nameserver %s at port %s",
+			ns_str, ns_port);
 
 
 	ns = nameserver_alloc();

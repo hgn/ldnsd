@@ -29,12 +29,25 @@
 static void set_default_options(struct cli_opts *opts)
 {
 	memset(opts, 0, sizeof(*opts));
+
+	opts->port           = xstrdup(DEFAULT_LISTEN_PORT);
+	opts->forwarder_addr = xstrdup(DEFAULT_NS);
+	opts->forwarder_port = xstrdup(DEFAULT_NS_PORT);
 }
 
 void free_cli_opts(struct cli_opts *opts)
 {
 	if (opts->rc_path)
 		free(opts->rc_path);
+
+	if (opts->port)
+		free(opts->port);
+
+	if (opts->forwarder_addr)
+		free(opts->forwarder_addr);
+
+	if (opts->forwarder_port)
+		free(opts->forwarder_port);
 
 	free(opts->me);
 }

@@ -30,7 +30,7 @@ static int socket_bind(struct addrinfo *a)
 
 	ret = bind(fd, a->ai_addr, a->ai_addrlen);
 	if (ret) {
-		err_msg("bind failed");
+		err_sys("bind failed");
 		close(fd);
 		return -1;
 	}
@@ -65,7 +65,9 @@ static int init_server_socket(int family, int socktype, int protocol, const char
 		err_msg_die(EXIT_FAILNET,
 				"Don't found a suitable address for binding,"
 				" giving up (TIP: start program with strace(2)"
-				" to find the problen\n");
+				" to find the problen)\n");
+
+	pr_debug("listen at port %s", port);
 
 	freeaddrinfo(hostres);
 
@@ -311,7 +313,7 @@ static void incoming_request(int fd, int what, void *data)
 				return;
 			err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
 		}
-		pr_debug("incoming packet on back-end port %d", DEFAULT_LISTEN_PORT);
+		pr_debug("incoming packet on back-end port %s", ctx->cli_opts.port);
 		process_p_dns_query(ctx, packet, rc, &ss, ss_len);
 	}
 }
@@ -348,7 +350,7 @@ int init_client_side(struct ctx *ctx)
 {
 	int ret;
 
-	ctx->client_server_socket = init_server_socket(AF_INET, SOCK_DGRAM, 0, DEFAULT_LISTEN_PORT);
+	ctx->client_server_socket = init_server_socket(AF_INET, SOCK_DGRAM, 0, ctx->cli_opts.port);
 
 	ret = ev_add_server_socket(ctx, ctx->client_server_socket);
 	if (ret != SUCCESS) {

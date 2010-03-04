@@ -573,10 +573,6 @@ static void nameserver_read_event(int fd, int what, void *data)
 }
 
 
-/* default to google ns */
-#define	DEFAULT_NS "192.168.1.1"
-#define	DEFAULT_NS_PORT "53"
-
 int init_server_side(struct ctx *ctx)
 {
 	int ret;
@@ -587,7 +583,8 @@ int init_server_side(struct ctx *ctx)
 		return FAILURE;
 	}
 
-	ret = nameserver_add(ctx, DEFAULT_NS, DEFAULT_NS_PORT, nameserver_read_event);
+	ret = nameserver_add(ctx, ctx->cli_opts.forwarder_addr, ctx->cli_opts.forwarder_port,
+			nameserver_read_event);
 	if (ret != SUCCESS) {
 		err_msg("cannot add default nameserver: %s", DEFAULT_NS);
 		return FAILURE;
