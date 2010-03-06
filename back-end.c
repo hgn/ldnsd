@@ -67,7 +67,7 @@ static int init_server_socket(int family, int socktype, int protocol, const char
 				" giving up (TIP: start program with strace(2)"
 				" to find the problen)\n");
 
-	pr_debug("listen at port %s", port);
+	pr_debug("daemon itself listen at port %s", port);
 
 	freeaddrinfo(hostres);
 
@@ -155,7 +155,11 @@ static int response_cb(struct dns_journey *dnsj)
 	}
 
 	/* set response flag */
-	dns_packet_set_response_flag(dnsj->a_res_packet);
+	packet_flags_clear(dnsj->a_res_packet);
+	packet_flags_set_qr_response(dnsj->a_res_packet);
+	packet_flags_set_unauthoritative_answer(dnsj->a_res_packet);
+	packet_flags_set_untruncated(dnsj->a_res_packet);
+	packet_flags_set_recursion_available(dnsj->a_res_packet);
 
 	pr_debug("now send answer to resolver. Packet size: %u",
 			offset);

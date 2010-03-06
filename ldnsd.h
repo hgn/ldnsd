@@ -496,8 +496,21 @@ extern void free_dns_pdu(struct dns_pdu *);
 extern void pretty_print_flags(FILE *, uint16_t);
 extern void free_dns_journey(struct dns_journey *);
 extern void free_dns_journey_list_entry(void *);
-extern void dns_packet_set_response_flag(char *);
 void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
+void packet_flags_clear(char *);
+void packet_flags_set_qr_response(char *);
+void packet_flags_set_qr_query(char *);
+void packet_flags_set_authoritative_answer(char *);
+void packet_flags_set_unauthoritative_answer(char *);
+void packet_flags_set_truncated(char *);
+void packet_flags_set_untruncated(char *);
+void packet_flags_set_recursion_desired(char *);
+void packet_flags_set_recursion_undesired(char *);
+void packet_flags_set_recursion_available(char *);
+void packet_flags_set_recursion_unavailable(char *);
+void packet_flags_set_rcode(char *, char);
+void packet_flags_set_rc_no_error(char *);
+int packet_flags_get_rcode(char *);
 
 /* cli_opts.c */
 int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);

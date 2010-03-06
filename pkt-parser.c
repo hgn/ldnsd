@@ -573,12 +573,98 @@ void dns_packet_set_rr_entries_number(char *packet, enum rr_section rr_section, 
 	*ptr = ntohs(no);
 }
 
+/* clear the whole 16 bit flag field */
+void packet_flags_clear(char *packet)
+{
+	packet[2] = 0;
+	packet[3] = 0;
+}
 
+void packet_flags_set_qr_response(char *packet)
+{
+	packet[2] |= 0x80;
+}
+
+void packet_flags_set_qr_query(char *packet)
+{
+	packet[2] &= ~0x80;
+}
+
+void packet_flags_set_authoritative_answer(char *packet)
+{
+	packet[2] |= 0x04;
+}
+
+void packet_flags_set_unauthoritative_answer(char *packet)
+{
+	packet[2] &= ~0x04;
+}
+
+void packet_flags_set_truncated(char *packet)
+{
+	packet[2] |= 0x02;
+}
+
+void packet_flags_set_untruncated(char *packet)
+{
+	packet[2] &= ~0x02;
+}
+
+void packet_flags_set_recursion_desired(char *packet)
+{
+	packet[2] |= 0x01;
+}
+
+void packet_flags_set_recursion_undesired(char *packet)
+{
+	packet[2] &= ~0x01;
+}
+
+void packet_flags_set_recursion_available(char *packet)
+{
+	packet[3] |= 0x80;
+}
+
+void packet_flags_set_recursion_unavailable(char *packet)
+{
+	packet[3] &= ~0x80;
+}
+
+void packet_flags_set_rcode(char *packet, char rcode)
+{
+	packet[3] &= ~0x0f;
+	packet[3] |= (rcode & 0x0f);
+}
+
+#define	FLAGS_RCODE_NO_ERROR   0
+#define	FLAGS_RCODE_NAME_ERROR 3
+
+void packet_flags_set_rc_no_error(char *packet)
+{
+	packet_flags_set_rcode(packet, 0);
+}
+
+int packet_flags_get_rcode(char *packet)
+{
+	return packet[3] & 0x0f;
+}
+
+#if 0
 void dns_packet_set_response_flag(char *packet)
 {
 	uint16_t *flags = (uint16_t *)(packet + sizeof(char) * 2);
-	*flags |= 0x8000;
+	*flags |= htons(0x8000);
 }
+
+void dns_packet_flags_set_reply_code(char *packet, uint16_t code)
+{
+	uint16_t tmp = code & 0xf;
+
+	uint16_t *flags = (uint16_t *)(packet + sizeof(char) * 2);
+
+
+}
+#endif
 
 
 #define	MAX_DNS_NAME 256

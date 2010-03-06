@@ -25,7 +25,7 @@ int yylex(void);
 
 %token PORT
 
-%token <word>  WORD VERBOSELEVEL PORT FORWARDERADDR FORWARDERPORT
+%token <word>  WORD VERBOSELEVEL FORWARDERADDR FORWARDERPORT
 
 /* rules */
 %%
