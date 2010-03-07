@@ -377,6 +377,12 @@ struct dns_journey {
 	/* the correspondent context */
 	struct ctx *ctx;
 
+	/* edns0 related variables. Per default
+	 * edns0 is disabled and the max payload is
+	 * restricted to 512 byte payload. */
+#define	DEFAULT_PDU_MAX_PAYLOAD_SIZE 512
+	unsigned max_payload_size;
+
 	/* +++ Passive Request Section +++ */
 
 	/* the following fields are completed before
@@ -412,7 +418,7 @@ struct dns_journey {
 	 * # Active Response Section */
 
 	char *a_res_packet;
-	size_t len;
+	size_t a_res_packet_len;
 
 	/* ####
 	 * # Misc Variables */
@@ -491,6 +497,7 @@ extern int init_client_side(struct ctx *);
 /* pkt_parser.c */
 extern int clone_dns_pkt(char *, size_t, char **, size_t);
 extern int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
+extern struct dns_journey *alloc_dns_journey(void);
 extern void free_dns_subsection(uint16_t, struct dns_sub_section **);
 extern void free_dns_pdu(struct dns_pdu *);
 extern void pretty_print_flags(FILE *, uint16_t);

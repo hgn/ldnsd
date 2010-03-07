@@ -94,6 +94,21 @@ void free_dns_journey_list_entry(void *d)
 	free_dns_journey(d);
 }
 
+static void initialize_dns_journey(struct dns_journey *j)
+{
+	j->max_payload_size = DEFAULT_PDU_MAX_PAYLOAD_SIZE;
+}
+
+struct dns_journey *alloc_dns_journey(void)
+{
+	struct dns_journey *j;
+
+	j = xzalloc(sizeof(*j));
+	initialize_dns_journey(j);
+
+	return j;
+}
+
 void free_dns_journey(struct dns_journey *x)
 {
 	int i;
@@ -644,24 +659,6 @@ int packet_flags_get_rcode(char *packet)
 	return packet[3] & 0x0f;
 }
 
-#if 0
-void dns_packet_set_response_flag(char *packet)
-{
-	uint16_t *flags = (uint16_t *)(packet + sizeof(char) * 2);
-	*flags |= htons(0x8000);
-}
-
-void dns_packet_flags_set_reply_code(char *packet, uint16_t code)
-{
-	uint16_t tmp = code & 0xf;
-
-	uint16_t *flags = (uint16_t *)(packet + sizeof(char) * 2);
-
-
-}
-#endif
-
-
 #define	MAX_DNS_NAME 256
 
 /* returns the number of bytes for the parsed section
@@ -696,8 +693,9 @@ static unsigned parse_rr_section(struct ctx *ctx, const char *packet,
 	i += getint32_t(packet, i, max_len, &dnssq->ttl);
 	i += get16(packet, i, max_len, &dnssq->rdlength);
 
-	pr_debug("parsed type: %s, parsed class: %s ttl: %u rdlength: %u",
-			type_to_str(dnssq->type), class_to_str(dnssq->class),
+	pr_debug("parsed type: %s(%u), parsed class: %s (%u)ttl: %u rdlength: %u",
+			type_to_str(dnssq->type), dnssq->type,
+			class_to_str(dnssq->class), dnssq->class,
 			dnssq->ttl, dnssq->rdlength);
 
 	/* skip data for offset variable */

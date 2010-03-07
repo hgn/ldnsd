@@ -80,31 +80,10 @@ void fini_server_socket(int fd)
 	close(fd);
 }
 
-
-/* this function is called if
- * a) the cache return a positive answer (positive)
- * b) the transmitted request returned (positive)
- * c) the question timed out (negative)
- * d) the server replied negative (also negative)
- *
- * Main task of this function is to generate a
- * new packet and send it to the resolver */
-static int response_cb(struct dns_journey *dnsj)
+static int construct_active_response_packet(struct dns_journey *dnsj)
 {
 	int ret;
-	size_t new_pkt_len, offset;
-	ssize_t sret;
-
-	pr_debug("got a anwser");
-
-	pr_debug("anwser contains following data: %u questions, %u answers,"
-			 " %u authority %u additional, entries",
-			 dnsj->p_res_dns_pdu->questions, dnsj->p_res_dns_pdu->answers,
-			 dnsj->p_res_dns_pdu->authority, dnsj->p_res_dns_pdu->additional);
-
-	pr_debug("answer section: %u bytes, authority section %u bytes, additional section %u bytes",
-			dnsj->p_res_dns_pdu->answers_section_len, dnsj->p_res_dns_pdu->authority_section_len,
-			dnsj->p_res_dns_pdu->additional_section_len);
+	size_t new_pkt_len;
 
 	/* original packet len plus new answer, authority
 	 * and additional entries length */
@@ -119,40 +98,7 @@ static int response_cb(struct dns_journey *dnsj)
 				" a internal error");
 	}
 
-	offset = dnsj->p_req_packet_len;
-
-	if (dnsj->p_res_dns_pdu->answers > 0) {
-		/* copy the answer at the directly after the and of the question */
-		memcpy(dnsj->a_res_packet + offset, dnsj->p_res_dns_pdu->answers_section_ptr,
-				dnsj->p_res_dns_pdu->answers_section_len);
-
-		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
-				RR_SECTION_ANCOUNT, dnsj->p_res_dns_pdu->answers);
-
-		offset += dnsj->p_res_dns_pdu->answers_section_len;
-	}
-
-	if (dnsj->p_res_dns_pdu->authority > 0) {
-		memcpy(dnsj->a_res_packet + offset,
-				dnsj->p_res_dns_pdu->authority_section_ptr,
-				dnsj->p_res_dns_pdu->authority_section_len);
-
-		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
-				RR_SECTION_NSCOUNT, dnsj->p_res_dns_pdu->authority);
-
-		offset += dnsj->p_res_dns_pdu->authority_section_len;
-	}
-
-	if (dnsj->p_res_dns_pdu->additional > 0) {
-		memcpy(dnsj->a_res_packet + offset,
-				dnsj->p_res_dns_pdu->additional_section_ptr,
-				dnsj->p_res_dns_pdu->additional_section_len);
-
-		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
-				RR_SECTION_ARCOUNT, dnsj->p_res_dns_pdu->additional);
-
-		offset += dnsj->p_res_dns_pdu->additional_section_len;
-	}
+	dnsj->a_res_packet_len = dnsj->p_req_packet_len;
 
 	/* set response flag */
 	packet_flags_clear(dnsj->a_res_packet);
@@ -161,11 +107,114 @@ static int response_cb(struct dns_journey *dnsj)
 	packet_flags_set_untruncated(dnsj->a_res_packet);
 	packet_flags_set_recursion_available(dnsj->a_res_packet);
 
-	pr_debug("now send answer to resolver. Packet size: %u",
-			offset);
+	/* this should not happened!
+	 * The original packet was bigger then the maximum allowed
+	 * size of (e.g. 512 byte). If we receive a packet with a EDNS0
+	 * option we increase this limit. */
+	if (dnsj->a_res_packet_len > dnsj->max_payload_size) {
+		err_msg("response packet is larger then allowed - no shrinking possible");
+		return FAILURE;
+	}
+
+
+	if (dnsj->p_res_dns_pdu->answers > 0) {
+		/* copy the answer at the directly after the and of the question */
+		memcpy(dnsj->a_res_packet + dnsj->a_res_packet_len,
+				dnsj->p_res_dns_pdu->answers_section_ptr,
+				dnsj->p_res_dns_pdu->answers_section_len);
+
+		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
+				RR_SECTION_ANCOUNT, dnsj->p_res_dns_pdu->answers);
+
+		dnsj->a_res_packet_len += dnsj->p_res_dns_pdu->answers_section_len;
+	}
+
+	if (dnsj->a_res_packet_len > dnsj->max_payload_size) {
+		err_msg("response packet is larger then allowed - no shrinking possible");
+		return FAILURE;
+	}
+
+
+	if (dnsj->p_res_dns_pdu->authority > 0) {
+		memcpy(dnsj->a_res_packet + dnsj->a_res_packet_len,
+				dnsj->p_res_dns_pdu->authority_section_ptr,
+				dnsj->p_res_dns_pdu->authority_section_len);
+
+		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
+				RR_SECTION_NSCOUNT, dnsj->p_res_dns_pdu->authority);
+
+		dnsj->a_res_packet_len += dnsj->p_res_dns_pdu->authority_section_len;
+	}
+
+	if (dnsj->a_res_packet_len > dnsj->max_payload_size) {
+		err_msg("response packet is larger then allowed - shrinking it (remove authority section)");
+		dnsj->a_res_packet_len -= dnsj->p_res_dns_pdu->authority_section_len;
+		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
+				RR_SECTION_NSCOUNT, 0);
+		packet_flags_set_truncated(dnsj->a_res_packet);
+		return SUCCESS;
+	}
+
+
+	if (dnsj->p_res_dns_pdu->additional > 0) {
+		memcpy(dnsj->a_res_packet + dnsj->a_res_packet_len,
+				dnsj->p_res_dns_pdu->additional_section_ptr,
+				dnsj->p_res_dns_pdu->additional_section_len);
+
+		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
+				RR_SECTION_ARCOUNT, dnsj->p_res_dns_pdu->additional);
+
+		dnsj->a_res_packet_len += dnsj->p_res_dns_pdu->additional_section_len;
+	}
+
+	if (dnsj->a_res_packet_len > dnsj->max_payload_size) {
+		err_msg("response packet is larger then allowed - shrinking it (remove additional section)");
+		dnsj->a_res_packet_len -= dnsj->p_res_dns_pdu->additional_section_len;
+		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
+				RR_SECTION_ARCOUNT, 0);
+		packet_flags_set_truncated(dnsj->a_res_packet);
+		return SUCCESS;
+	}
+
+	pr_debug("now send answer to resolver. packet size: %u",
+			dnsj->a_res_packet_len);
+
+	return SUCCESS;
+}
+
+
+/* this function is called if
+ * a) the cache return a positive answer (positive)
+ * b) the transmitted request returned (positive)
+ * c) the question timed out (negative)
+ * d) the server replied negative (also negative)
+ *
+ * Main task of this function is to generate a
+ * new packet and send it to the resolver */
+static int response_cb(struct dns_journey *dnsj)
+{
+	int ret;
+	ssize_t sret;
+
+	pr_debug("got a anwser");
+
+	pr_debug("anwser contains following data: %u questions, %u answers,"
+			 " %u authority %u additional, entries",
+			 dnsj->p_res_dns_pdu->questions, dnsj->p_res_dns_pdu->answers,
+			 dnsj->p_res_dns_pdu->authority, dnsj->p_res_dns_pdu->additional);
+
+	pr_debug("answer section: %u bytes, authority section %u bytes, additional section %u bytes",
+			dnsj->p_res_dns_pdu->answers_section_len, dnsj->p_res_dns_pdu->authority_section_len,
+			dnsj->p_res_dns_pdu->additional_section_len);
+
+	ret = construct_active_response_packet(dnsj);
+	if (ret != SUCCESS) {
+		err_msg("cannot constuct response packet");
+		return FAILURE;
+	}
 
 	sret = sendto(dnsj->ctx->client_server_socket, dnsj->a_res_packet,
-			offset, 0,
+			dnsj->a_res_packet_len, 0,
 			(struct sockaddr *)&dnsj->p_req_ss, dnsj->p_req_ss_len);
 	if (sret < 0) {
 		err_sys("failure in send a DNS answer back to the resolver");
@@ -221,7 +270,7 @@ static void process_p_dns_query(struct ctx *ctx, const char *packet, const size_
 	int ret;
 	struct dns_journey *dns_journey;
 
-	dns_journey = xzalloc(sizeof(*dns_journey));
+	dns_journey = alloc_dns_journey();
 
 	ret = parse_dns_packet(ctx, packet, len, &dns_journey->p_req_dns_pdu);
 	if (ret != SUCCESS) {
