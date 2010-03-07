@@ -496,21 +496,31 @@ extern void free_dns_pdu(struct dns_pdu *);
 extern void pretty_print_flags(FILE *, uint16_t);
 extern void free_dns_journey(struct dns_journey *);
 extern void free_dns_journey_list_entry(void *);
-void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
-void packet_flags_clear(char *);
-void packet_flags_set_qr_response(char *);
-void packet_flags_set_qr_query(char *);
-void packet_flags_set_authoritative_answer(char *);
-void packet_flags_set_unauthoritative_answer(char *);
-void packet_flags_set_truncated(char *);
-void packet_flags_set_untruncated(char *);
-void packet_flags_set_recursion_desired(char *);
-void packet_flags_set_recursion_undesired(char *);
-void packet_flags_set_recursion_available(char *);
-void packet_flags_set_recursion_unavailable(char *);
-void packet_flags_set_rcode(char *, char);
-void packet_flags_set_rc_no_error(char *);
-int packet_flags_get_rcode(char *);
+extern void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
+
+/* all packet_flags_* functions have as the very first argument
+ * a pointer to the start of a DNS packet blob */
+extern void packet_flags_clear(char *);
+extern void packet_flags_set_qr_response(char *);
+extern void packet_flags_set_qr_query(char *);
+extern void packet_flags_set_authoritative_answer(char *);
+extern void packet_flags_set_unauthoritative_answer(char *);
+extern void packet_flags_set_truncated(char *);
+extern void packet_flags_set_untruncated(char *);
+extern void packet_flags_set_recursion_desired(char *);
+extern void packet_flags_set_recursion_undesired(char *);
+extern void packet_flags_set_recursion_available(char *);
+extern void packet_flags_set_recursion_unavailable(char *);
+extern void packet_flags_set_rcode(char *, char);
+extern void packet_flags_set_rc_no_error(char *);
+extern int packet_flags_get_rcode(char *);
+
+#define	FLAGS_RCODE_NO_ERROR   0
+#define	FLAGS_RCODE_NAME_ERROR 3
+
+#define	packet_flags_set_rc_no_error(p)   packet_flags_set_rcode(p, FLAGS_RCODE_NO_ERROR)
+#define	packet_flags_set_rc_name_error(p) packet_flags_set_rcode(p, FLAGS_RCODE_NAME_ERROR)
+
 
 /* cli_opts.c */
 int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);

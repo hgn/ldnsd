@@ -573,75 +573,70 @@ void dns_packet_set_rr_entries_number(char *packet, enum rr_section rr_section, 
 	*ptr = ntohs(no);
 }
 
+#define	PACKET_OFFSET_FLAG_FIELD_B1 2
+#define	PACKET_OFFSET_FLAG_FIELD_B2 3
+
 /* clear the whole 16 bit flag field */
 void packet_flags_clear(char *packet)
 {
-	packet[2] = 0;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] = 0;
 	packet[3] = 0;
 }
 
 void packet_flags_set_qr_response(char *packet)
 {
-	packet[2] |= 0x80;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] |= 0x80;
 }
 
 void packet_flags_set_qr_query(char *packet)
 {
-	packet[2] &= ~0x80;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] &= ~0x80;
 }
 
 void packet_flags_set_authoritative_answer(char *packet)
 {
-	packet[2] |= 0x04;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] |= 0x04;
 }
 
 void packet_flags_set_unauthoritative_answer(char *packet)
 {
-	packet[2] &= ~0x04;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] &= ~0x04;
 }
 
 void packet_flags_set_truncated(char *packet)
 {
-	packet[2] |= 0x02;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] |= 0x02;
 }
 
 void packet_flags_set_untruncated(char *packet)
 {
-	packet[2] &= ~0x02;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] &= ~0x02;
 }
 
 void packet_flags_set_recursion_desired(char *packet)
 {
-	packet[2] |= 0x01;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] |= 0x01;
 }
 
 void packet_flags_set_recursion_undesired(char *packet)
 {
-	packet[2] &= ~0x01;
+	packet[PACKET_OFFSET_FLAG_FIELD_B1] &= ~0x01;
 }
 
 void packet_flags_set_recursion_available(char *packet)
 {
-	packet[3] |= 0x80;
+	packet[PACKET_OFFSET_FLAG_FIELD_B2] |= 0x80;
 }
 
 void packet_flags_set_recursion_unavailable(char *packet)
 {
-	packet[3] &= ~0x80;
+	packet[PACKET_OFFSET_FLAG_FIELD_B2] &= ~0x80;
 }
 
 void packet_flags_set_rcode(char *packet, char rcode)
 {
-	packet[3] &= ~0x0f;
-	packet[3] |= (rcode & 0x0f);
-}
-
-#define	FLAGS_RCODE_NO_ERROR   0
-#define	FLAGS_RCODE_NAME_ERROR 3
-
-void packet_flags_set_rc_no_error(char *packet)
-{
-	packet_flags_set_rcode(packet, 0);
+	packet[PACKET_OFFSET_FLAG_FIELD_B2] &= ~0x0f;
+	packet[PACKET_OFFSET_FLAG_FIELD_B2] |= (rcode & 0x0f);
 }
 
 int packet_flags_get_rcode(char *packet)
@@ -864,8 +859,9 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 			 * error path to free() the allocated memory */
 			if (is_valid_type(dnssq->type) != SUCCESS ||
 					is_valid_class(dnssq->class) != SUCCESS) {
-				err_msg("parsed type %s or class %s is not valid, i ignore this request",
-						type_to_str(dnssq->type), class_to_str(dnssq->class));
+				err_msg("parsed type %s(%u) or class %s(%u) is not valid, i ignore this request",
+						type_to_str(dnssq->type), dnssq->type,
+						class_to_str(dnssq->class), dnssq->class);
 
 err_answer:
 				/* free all allocated memory */
@@ -906,8 +902,9 @@ err_answer:
 			 * error path to free() the allocated memory */
 			if (is_valid_type(dnssq->type) != SUCCESS ||
 					is_valid_class(dnssq->class) != SUCCESS) {
-				err_msg("parsed type %s or class %s is not valid, i ignore this request",
-						type_to_str(dnssq->type), class_to_str(dnssq->class));
+				err_msg("parsed type %s(%u) or class %s(%u) is not valid, i ignore this request",
+						type_to_str(dnssq->type), dnssq->type,
+						class_to_str(dnssq->class), dnssq->class);
 
 err_authority:
 				/* free all allocated memory */
@@ -949,8 +946,9 @@ err_authority:
 			 * error path to free() the allocated memory */
 			if (is_valid_type(dnssq->type) != SUCCESS ||
 					is_valid_class(dnssq->class) != SUCCESS) {
-				err_msg("parsed type %s or class %s is not valid, i ignore this request",
-						type_to_str(dnssq->type), class_to_str(dnssq->class));
+				err_msg("parsed type %s(%u) or class %s(%u) is not valid, i ignore this request",
+						type_to_str(dnssq->type), dnssq->type,
+						class_to_str(dnssq->class), dnssq->class);
 
 err_additional:
 				/* free all allocated memory */
