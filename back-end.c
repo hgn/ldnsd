@@ -80,106 +80,199 @@ void fini_server_socket(int fd)
 	close(fd);
 }
 
-static int construct_active_response_packet(struct dns_journey *dnsj)
+static void fire_error(struct dns_journey *dnsj)
 {
-	int ret;
-	size_t new_pkt_len;
+	(void) dnsj;
+	/* FIXME: inform sender that a error occured */
+	abort();
+}
 
-	/* original packet len plus new answer, authority
-	 * and additional entries length */
-	new_pkt_len = dnsj->p_req_packet_len + dnsj->p_res_dns_pdu->answers_section_len +
-		dnsj->p_res_dns_pdu->authority_section_len + dnsj->p_res_dns_pdu->additional_section_len;
+static inline int construct_header_question_section(struct dns_journey *dnsj,
+		char *packet, int offset, int max_len)
+{
+	int len = DNS_PDU_HEADER_LEN + dnsj->p_req_dns_pdu->questions_section_len;
 
-	/* generate packet */
-	ret = clone_dns_pkt(dnsj->p_req_packet, dnsj->p_req_packet_len,
-			&dnsj->a_res_packet, new_pkt_len);
-	if (ret != SUCCESS) {
-		err_msg_die(EXIT_FAILNET, "cannot generate a answer packet, clone_dns_pkt discovered"
-				" a internal error");
+	(void) offset;
+
+	if (len >= max_len) {
+		pr_debug("the DNS header plus the question section is at least"
+				" as big then the whole packet - thats to big for us");
+		return -1;
 	}
 
-	dnsj->a_res_packet_len = dnsj->p_req_packet_len;
+	pr_debug("header + question section len: %d", len);
 
-	/* set response flag */
-	packet_flags_clear(dnsj->a_res_packet);
-	packet_flags_set_qr_response(dnsj->a_res_packet);
-	packet_flags_set_unauthoritative_answer(dnsj->a_res_packet);
-	packet_flags_set_untruncated(dnsj->a_res_packet);
-	packet_flags_set_recursion_available(dnsj->a_res_packet);
+	/* generate packet. We clone the original
+	 * packet here, but only the header and the
+	 * quesion section, the rest is neglected */
+	memcpy(packet, dnsj->p_req_packet, len);
 
-	/* this should not happened!
-	 * The original packet was bigger then the maximum allowed
-	 * size of (e.g. 512 byte). If we receive a packet with a EDNS0
-	 * option we increase this limit. */
-	if (dnsj->a_res_packet_len > dnsj->max_payload_size) {
-		err_msg("response packet is larger then allowed - no shrinking possible");
+	/* set default response flag */
+	packet_flags_clear(packet);
+	packet_flags_set_qr_response(packet);
+	packet_flags_set_unauthoritative_answer(packet);
+	packet_flags_set_untruncated(packet);
+	packet_flags_set_recursion_available(packet);
+
+	dns_packet_set_rr_entries_number(packet, RR_SECTION_QDCOUNT, 1);
+	dns_packet_set_rr_entries_number(packet, RR_SECTION_ANCOUNT, 0);
+	dns_packet_set_rr_entries_number(packet, RR_SECTION_NSCOUNT, 0);
+	dns_packet_set_rr_entries_number(packet, RR_SECTION_ARCOUNT, 0);
+
+	return len;
+}
+
+
+static inline int construct_answer_section(struct dns_journey *dnsj,
+		char *packet, int offset, int max_len)
+{
+	int len = dnsj->p_res_dns_pdu->answers_section_len;
+
+	if (unlikely(dnsj->p_res_dns_pdu->answers <= 0))
+		return 0;
+
+	if (len > max_len)
+		return -1;
+
+	pr_debug("answer section len: %d", len);
+
+	memcpy(packet + offset, dnsj->p_res_dns_pdu->answers_section_ptr, len);
+
+	dns_packet_set_rr_entries_number(packet, RR_SECTION_ANCOUNT,
+			dnsj->p_res_dns_pdu->answers);
+
+	return len;
+}
+
+
+static inline int construct_authority_section(struct dns_journey *dnsj,
+		char *packet, int offset, int max_len)
+{
+	int len = dnsj->p_res_dns_pdu->authority_section_len;
+
+	if (unlikely(dnsj->p_res_dns_pdu->authority <= 0))
+		return 0;
+
+	if (len > max_len)
+		return -1;
+
+	pr_debug("authority section len: %d", len);
+
+	memcpy(packet + offset, dnsj->p_res_dns_pdu->authority_section_ptr, len);
+
+	dns_packet_set_rr_entries_number(packet, RR_SECTION_NSCOUNT,
+			dnsj->p_res_dns_pdu->authority);
+
+	return len;
+}
+
+
+static inline int construct_additional_section(struct dns_journey *dnsj,
+		char *packet, int offset, int max_len)
+{
+	int ret, len;
+
+	len = dnsj->p_res_dns_pdu->additional_section_len;
+
+	if (unlikely(dnsj->p_res_dns_pdu->additional <= 0))
+		return 0;
+
+	if (len > max_len)
+		return -1;
+
+	pr_debug("additional section len: %d", len);
+
+	memcpy(packet + offset, dnsj->p_res_dns_pdu->additional_section_ptr, len);
+	offset += len;
+
+	dns_packet_set_rr_entries_number(packet, RR_SECTION_ARCOUNT,
+			dnsj->p_res_dns_pdu->authority);
+
+	/* in the case that the resolver send a edns0 option we
+	 * also set this option to signal that we are edns0 aware
+	 * if the local configuration does not disable edns0 of course */
+	if (type_041_opt_available(dnsj->p_req_dns_pdu) &&
+			dnsj->ctx->cli_opts.edns0_mode) {
+
+
+		ret = type_041_opt_construct_option(dnsj, packet, offset, max_len);
+		if (ret < 0) {
+			/* ok, the packet is to big we return
+			 * with the version before the edns0 processing
+			 * because we know that these fields already
+			 * matched the packet limitations */
+			return len;
+		}
+		offset += ret; len += ret;
+
+		dns_packet_set_rr_entries_number(packet,
+				RR_SECTION_ARCOUNT, dnsj->p_res_dns_pdu->additional + 1);
+
+	}
+
+	return len;
+}
+
+/* We determine the maximum len of the outgoing
+ * packet. The limit depends on several factors.
+ *	1. if the resolver does not not support edns0
+ *	   mechanism we fall back to 512 (dnsj->max_payload_size
+ *	   is initialized to this value.
+ *	2. if the resolver support edns in the request then the
+ *	   max_payload_size it set to this value. max_payload_size
+ *	   represent therefore the client limit
+ *	3. we can also be the limiting instance if the configuration
+ *	   disable edns0 mechanism, or
+ *	4. if the configuration limit is smaller then the client limit
+ *	   dnsj->ctx->buf_max < dnsj->max_payload_size */
+static int max_response_packet_len(struct dns_journey *dnsj)
+{
+	return min_t(int, dnsj->ctx->buf_max, dnsj->p_req_dns_pdu->edns0_max_payload);
+}
+
+
+static size_t construct_active_response_packet(struct dns_journey *dnsj)
+{
+	int offset, ret, max_len;
+	char *packet = dnsj->ctx->buf;
+
+	max_len  = max_response_packet_len(dnsj);
+	pr_debug("the maximum packet payload size is %d", max_len);
+
+	offset = 0;
+
+	ret = construct_header_question_section(dnsj, packet, offset, max_len);
+	if (ret < 0) {
+		fire_error(dnsj);
 		return FAILURE;
 	}
+	offset += ret; max_len -= ret;
 
 
-	if (dnsj->p_res_dns_pdu->answers > 0) {
-		/* copy the answer at the directly after the and of the question */
-		memcpy(dnsj->a_res_packet + dnsj->a_res_packet_len,
-				dnsj->p_res_dns_pdu->answers_section_ptr,
-				dnsj->p_res_dns_pdu->answers_section_len);
-
-		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
-				RR_SECTION_ANCOUNT, dnsj->p_res_dns_pdu->answers);
-
-		dnsj->a_res_packet_len += dnsj->p_res_dns_pdu->answers_section_len;
-	}
-
-	if (dnsj->a_res_packet_len > dnsj->max_payload_size) {
-		err_msg("response packet is larger then allowed - no shrinking possible");
+	ret = construct_answer_section(dnsj, packet, offset, max_len);
+	if (ret < 0) {
+		fire_error(dnsj);
 		return FAILURE;
 	}
+	offset += ret; max_len -= ret;
 
 
-	if (dnsj->p_res_dns_pdu->authority > 0) {
-		memcpy(dnsj->a_res_packet + dnsj->a_res_packet_len,
-				dnsj->p_res_dns_pdu->authority_section_ptr,
-				dnsj->p_res_dns_pdu->authority_section_len);
-
-		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
-				RR_SECTION_NSCOUNT, dnsj->p_res_dns_pdu->authority);
-
-		dnsj->a_res_packet_len += dnsj->p_res_dns_pdu->authority_section_len;
-	}
-
-	if (dnsj->a_res_packet_len > dnsj->max_payload_size) {
-		err_msg("response packet is larger then allowed - shrinking it (remove authority section)");
-		dnsj->a_res_packet_len -= dnsj->p_res_dns_pdu->authority_section_len;
-		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
-				RR_SECTION_NSCOUNT, 0);
-		packet_flags_set_truncated(dnsj->a_res_packet);
-		return SUCCESS;
-	}
+	ret = construct_authority_section(dnsj, packet, offset, max_len);
+	if (ret < 0) /* authority section is to large; sent answer & question */
+		goto fire_packet;
+	offset += ret; max_len -= ret;
 
 
-	if (dnsj->p_res_dns_pdu->additional > 0) {
-		memcpy(dnsj->a_res_packet + dnsj->a_res_packet_len,
-				dnsj->p_res_dns_pdu->additional_section_ptr,
-				dnsj->p_res_dns_pdu->additional_section_len);
+	ret = construct_additional_section(dnsj, packet, offset, max_len);
+	if (ret < 0) /* additional section is to large; sent authority, answer, question */
+		goto fire_packet;
+	offset += ret; max_len -= ret;
 
-		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
-				RR_SECTION_ARCOUNT, dnsj->p_res_dns_pdu->additional);
 
-		dnsj->a_res_packet_len += dnsj->p_res_dns_pdu->additional_section_len;
-	}
+	pr_debug("cumulative packet size: %d", offset);
 
-	if (dnsj->a_res_packet_len > dnsj->max_payload_size) {
-		err_msg("response packet is larger then allowed - shrinking it (remove additional section)");
-		dnsj->a_res_packet_len -= dnsj->p_res_dns_pdu->additional_section_len;
-		dns_packet_set_rr_entries_number(dnsj->a_res_packet,
-				RR_SECTION_ARCOUNT, 0);
-		packet_flags_set_truncated(dnsj->a_res_packet);
-		return SUCCESS;
-	}
-
-	pr_debug("now send answer to resolver. packet size: %u",
-			dnsj->a_res_packet_len);
-
-	return SUCCESS;
+fire_packet:
+	return offset;
 }
 
 
@@ -193,32 +286,38 @@ static int construct_active_response_packet(struct dns_journey *dnsj)
  * new packet and send it to the resolver */
 static int response_cb(struct dns_journey *dnsj)
 {
-	int ret;
+	size_t ret;
 	ssize_t sret;
 
-	pr_debug("got a anwser");
+	pr_debug("generate anwser [data: %u questions (%u bytes),"
+			" %u answers (%u bytes)"
+			" %u authorities (%u bytes) %u additionals (%u bytes)]",
+			 dnsj->p_res_dns_pdu->questions,
+			 dnsj->p_req_dns_pdu->questions_section_len,
+			 dnsj->p_res_dns_pdu->answers,
+			 dnsj->p_res_dns_pdu->answers_section_len,
+			 dnsj->p_res_dns_pdu->authority,
+			 dnsj->p_res_dns_pdu->authority_section_len,
+			 dnsj->p_res_dns_pdu->additional,
+			 dnsj->p_res_dns_pdu->additional_section_len);
 
-	pr_debug("anwser contains following data: %u questions, %u answers,"
-			 " %u authority %u additional, entries",
-			 dnsj->p_res_dns_pdu->questions, dnsj->p_res_dns_pdu->answers,
-			 dnsj->p_res_dns_pdu->authority, dnsj->p_res_dns_pdu->additional);
-
-	pr_debug("answer section: %u bytes, authority section %u bytes, additional section %u bytes",
-			dnsj->p_res_dns_pdu->answers_section_len, dnsj->p_res_dns_pdu->authority_section_len,
-			dnsj->p_res_dns_pdu->additional_section_len);
 
 	ret = construct_active_response_packet(dnsj);
-	if (ret != SUCCESS) {
-		err_msg("cannot constuct response packet");
+	if (ret <= 0) {
+		/* FIXME: the algorithm should _always_ send a packet
+		 * back to the originator to inform he */
+		err_msg("cannot construct response packet");
 		return FAILURE;
 	}
 
-	sret = sendto(dnsj->ctx->client_server_socket, dnsj->a_res_packet,
-			dnsj->a_res_packet_len, 0,
-			(struct sockaddr *)&dnsj->p_req_ss, dnsj->p_req_ss_len);
-	if (sret < 0) {
+	sret = sendto(dnsj->ctx->client_server_socket,
+			dnsj->ctx->buf,
+			ret,
+			0,
+			(struct sockaddr *)&dnsj->p_req_ss,
+			dnsj->p_req_ss_len);
+	if (sret < 0)
 		err_sys("failure in send a DNS answer back to the resolver");
-	}
 
 	return SUCCESS;
 }
@@ -305,14 +404,11 @@ static void process_p_dns_query(struct ctx *ctx, const char *packet, const size_
 	}
 
 	if (dns_journey->p_req_dns_pdu->answers > 0 ||
-		dns_journey->p_req_dns_pdu->authority > 0 ||
-		dns_journey->p_req_dns_pdu->additional > 0) {
+		dns_journey->p_req_dns_pdu->authority > 0) {
 		err_msg("the DNS REQUEST comes with unusual additional sections: "
-				"answers: %d, authority: %d, additional: %d. I ignore these "
-				"sections!",
+				"answers: %d, authority: %d I ignore these sections!",
 				dns_journey->p_req_dns_pdu->answers,
-				dns_journey->p_req_dns_pdu->authority,
-				dns_journey->p_req_dns_pdu->additional);
+				dns_journey->p_req_dns_pdu->authority);
 	}
 
 	dns_journey->p_req_name  = dns_journey->p_req_dns_pdu->questions_section[0]->name;

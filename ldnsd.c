@@ -108,6 +108,13 @@ int main(int ac, char **av)
 			err_msg_die(EXIT_FAILURE, "Can't parse configuration file");
 	}
 
+	/* ok, parsing is done - we now need to
+	 * allocate the memory for our packet construction
+	 * buffer */
+	ctx->buf = xmalloc(ctx->cli_opts.edns0_max);
+	ctx->buf_max = ctx->cli_opts.edns0_max;
+	assert(ctx->buf_max >= 512);
+
 	ret = init_server_side(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize server side");
@@ -119,11 +126,9 @@ int main(int ac, char **av)
 	ev_loop(ctx->ev_hndl, flags);
 
 	fini_server_socket(ctx->client_server_socket);
-
 	ev_free_hndl(ctx->ev_hndl);
-
 	free_cli_opts(&ctx->cli_opts);
-
+	free(ctx->buf);
 	free_ctx(ctx);
 
 	return EXIT_SUCCESS;

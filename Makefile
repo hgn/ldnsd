@@ -67,7 +67,11 @@ OBJ := ev.o \
 			 parser.tab.o \
 			 lex.yy.o     \
 			 rc.o         \
-			 cli-opts.o
+			 cli-opts.o   \
+			 type-multiplexer.o \
+			 type-041-opt.o \
+			 type-999-generic.o
+
 
 TARGET := ldnsd
 
@@ -101,3 +105,5 @@ tags:
 	$(RM) tags
 	$(FIND) . -name '*.[hcS]' -print | xargs ctags -a
 
+checkstyle:
+	 /usr/src/linux/scripts/checkpatch.pl --file --terse $(shell ls *.c)

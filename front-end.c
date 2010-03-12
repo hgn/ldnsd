@@ -437,9 +437,9 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 		q_type  = dns_j->p_req_type;
 		q_class = dns_j->p_req_class;
 
-		if ( (r_type == q_type)   &&
-			 (r_class == q_class) &&
-			 (!strcmp(r_name, q_name))) {
+		if ((r_type == q_type)   &&
+			(r_class == q_class) &&
+			(!strcmp(r_name, q_name))) {
 
 			/* FIXME: validate packet (ID and port) */
 
@@ -460,9 +460,8 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 			 * and where it is. This must be fixed  --HGN */
 			dns_j_match = dns_j;
 			ret = list_remove(dns_j->ctx->inflight_request_list, (void **)&dns_j_match);
-			if (ret != SUCCESS || dns_j_match != dns_j) {
+			if (ret != SUCCESS || dns_j_match != dns_j)
 				err_msg_die(EXIT_FAILINT, "failure in list remove of inflight list");
-			}
 
 			/* now delete/free the journey data structure, everything
 			 * is handled and the process for this journey is closed */
@@ -560,7 +559,7 @@ static void nameserver_read_event(int fd, int what, void *data)
 
 	while (1) {
 
-		rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr*) &ss, &ss_len);
+		rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr *)&ss, &ss_len);
 		if (rc < 0) {
 			if (errno == EAGAIN)
 				return;
@@ -592,7 +591,7 @@ int init_server_side(struct ctx *ctx)
 
 	ret = adns_request_init(ctx);
 	if (ret != SUCCESS) {
-		err_msg( "failure in initialize process of server side request structure");
+		err_msg("failure in initialize process of server side request structure");
 		return FAILURE;
 	}
 

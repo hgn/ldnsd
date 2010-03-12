@@ -33,6 +33,8 @@ static void set_default_options(struct cli_opts *opts)
 	opts->port           = xstrdup(DEFAULT_LISTEN_PORT);
 	opts->forwarder_addr = xstrdup(DEFAULT_NS);
 	opts->forwarder_port = xstrdup(DEFAULT_NS_PORT);
+	opts->edns0_mode     = EDNS0_MODE_DEFAULT;
+	opts->edns0_max      = EDNS0_DEFAULT;
 }
 
 void free_cli_opts(struct cli_opts *opts)

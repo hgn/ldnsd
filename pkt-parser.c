@@ -47,6 +47,7 @@
 #define	TYPE_DHCID	49
 #define	TYPE_DLV	32769
 #define	TYPE_DNAME	39
+#define	TYPE_OPT    41
 #define	TYPE_DNSKEY		48
 #define	TYPE_DS		43
 #define	TYPE_HIP	55
@@ -73,6 +74,7 @@
 #define	TYPE_OPT	41
 #endif
 
+
 int clone_dns_pkt(char *packet, size_t len, char **ret_pkt, size_t new_len)
 {
 	char *new_pkt;
@@ -88,6 +90,34 @@ int clone_dns_pkt(char *packet, size_t len, char **ret_pkt, size_t new_len)
 
 	return SUCCESS;
 }
+
+
+void free_dns_pdu(struct dns_pdu *dr)
+{
+	/* free sections first */
+	free_dns_subsection(dr->questions, dr->questions_section);
+	free_dns_subsection(dr->answers, dr->answers_section);
+	free_dns_subsection(dr->authority, dr->authority_section);
+	free_dns_subsection(dr->additional, dr->additional_section);
+	xfree(dr);
+}
+
+
+static initialize_dns_pdu(struct dns_pdu *dp)
+{
+	dp->edns0_max_payload = DEFAULT_PDU_MAX_PAYLOAD_SIZE;
+	dp->edns0_enabled = EDNS0_DISABLED; /* sure, if the client signals nothing */
+}
+
+
+struct dns_pdu *alloc_dns_pdu(void)
+{
+	struct dns_pdu *dr;
+	dr = xzalloc(sizeof(*dr));
+	initialize_dns_pdu(dr);
+	return dr;
+}
+
 
 void free_dns_journey_list_entry(void *d)
 {
@@ -278,6 +308,7 @@ static const char *type_to_str(uint16_t type)
 		case TYPE_CNAME: return "CNAME";
 		case TYPE_NS:    return "NS";
 		case TYPE_TXT:   return "TXT";
+		case TYPE_OPT:   return "OPT";
 		default:         return "UNKNOWN";
 	};
 }
@@ -297,7 +328,7 @@ static int is_valid_type(uint16_t type)
 		case TYPE_NAPTR: case TYPE_NSEC: case TYPE_NSEC3:
 		case TYPE_NSEC3PARAM: case TYPE_RRSIG: case TYPE_SIG:
 		case TYPE_SPF: case TYPE_SRV: case TYPE_SSHFP: case TYPE_TA:
-		case TYPE_TKEY: case TYPE_TSIG:
+		case TYPE_TKEY: case TYPE_TSIG: case TYPE_OPT:
 			return SUCCESS;
 			break;
 		default:
@@ -481,8 +512,6 @@ static int get_name(const char *data, size_t idx, size_t max,
 	while (666) {
 		i += get8(data, i, max, &llen);
 
-		pr_debug("label len: %u", llen);
-
 		if (llen == 0) /* reached end of string */
 			break;
 
@@ -549,16 +578,6 @@ void free_dns_subsection(uint16_t no, struct dns_sub_section **dss)
 	xfree(dss);
 }
 
-
-void free_dns_pdu(struct dns_pdu *dr)
-{
-	/* free sections first */
-	free_dns_subsection(dr->questions, dr->questions_section);
-	free_dns_subsection(dr->answers, dr->answers_section);
-	free_dns_subsection(dr->authority, dr->authority_section);
-	free_dns_subsection(dr->additional, dr->additional_section);
-	xfree(dr);
-}
 
 
 /* see 4.1.1. Header section format ( http://tools.ietf.org/html/rfc1035 ) */
@@ -664,11 +683,12 @@ int packet_flags_get_rcode(char *packet)
 /* returns the number of bytes for the parsed section
  * or 0 in the case of an error
  */
-static unsigned parse_rr_section(struct ctx *ctx, const char *packet,
+static unsigned parse_rr_section(struct ctx *ctx, struct dns_pdu *dr,
+		const char *packet,
 		unsigned offset, const size_t max_len,
 		struct dns_sub_section **dnssq_ret)
 {
-	int i;
+	int ret, i, type_offset;
 	struct dns_sub_section *dnssq;
 	char name[MAX_DNS_NAME];
 
@@ -680,7 +700,7 @@ static unsigned parse_rr_section(struct ctx *ctx, const char *packet,
 		return FAILURE;
 	}
 
-	pr_debug("parsed name: %s (new offset: %d)", name, i);
+	pr_debug("parsed name: \"%s\" (new offset: %d)", name, i);
 
 	dnssq = xzalloc(sizeof(struct dns_sub_section));
 
@@ -688,10 +708,26 @@ static unsigned parse_rr_section(struct ctx *ctx, const char *packet,
 	dnssq->name = xzalloc(strlen(name) + 1);
 	memcpy(dnssq->name, name, strlen(name) + 1);
 
+	type_offset = i;
+
+	/* FIXME: There should be a parser for all
+	 * types: a, aaaa, aaaaa, aaaaaaaa, ... */
 	i += get16(packet, i, max_len, &dnssq->type);
 	i += get16(packet, i, max_len, &dnssq->class);
 	i += getint32_t(packet, i, max_len, &dnssq->ttl);
 	i += get16(packet, i, max_len, &dnssq->rdlength);
+
+	/* FIXME: what if something goes wrong in this section.
+	 * Should we skip this section silently, drop the packet
+	 * or transparently interpret the data? To be forward
+	 * compatible the generic parser function should
+	 * transparently save the data. Think about new types
+	 * and the situation when the type isn't supported
+	 * correctly. ret must be substituted with i as used
+	 * in the former calls to getXXX() */
+	ret = type_opts[type_opts_to_index(dnssq->type)].parse(
+			ctx, dr, dnssq, packet + type_offset,
+			max_len - type_offset);
 
 	pr_debug("parsed type: %s(%u), parsed class: %s (%u)ttl: %u rdlength: %u",
 			type_to_str(dnssq->type), dnssq->type,
@@ -705,6 +741,7 @@ static unsigned parse_rr_section(struct ctx *ctx, const char *packet,
 
 	return i;
 }
+
 
 
 /* parse_dns_packet parses a standard DNS packet and
@@ -733,7 +770,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 
 	(void) ctx;
 
-	dr = xzalloc(sizeof(*dr));
+	dr = alloc_dns_pdu();
 
 	i += get16(packet, i, len, &dr->id);
 	i += get16(packet, i, len, &dr->flags);
@@ -831,7 +868,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		}
 	}
 
-	dr->questions_section_len = i;
+	dr->questions_section_len = i - DNS_PDU_HEADER_LEN;
 
 	/* parse answers */
 	if (dr->answers > 0) {
@@ -844,7 +881,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		for (j = 0; j < dr->answers; j++) {
 			struct dns_sub_section *dnssq;
 
-			i = parse_rr_section(ctx, packet, i, len, &dnssq);
+			i = parse_rr_section(ctx, dr, packet, i, len, &dnssq);
 			if (i < 1) {
 				err_msg("cannot parse rr section, I skip this packet");
 				goto err_answer;
@@ -855,8 +892,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 
 			/* XXX: the error check is here to simplify the
 			 * error path to free() the allocated memory */
-			if (is_valid_type(dnssq->type) != SUCCESS ||
-					is_valid_class(dnssq->class) != SUCCESS) {
+			if (is_valid_type(dnssq->type) != SUCCESS) {
 				err_msg("parsed type %s(%u) or class %s(%u) is not valid, i ignore this request",
 						type_to_str(dnssq->type), dnssq->type,
 						class_to_str(dnssq->class), dnssq->class);
@@ -875,7 +911,7 @@ err_answer:
 		}
 	}
 
-	dr->answers_section_len = i - dr->questions_section_len;
+	dr->answers_section_len = i - dr->questions_section_len - DNS_PDU_HEADER_LEN;
 
 	/* parse authority */
 	if (dr->authority > 0) {
@@ -888,7 +924,7 @@ err_answer:
 		for (j = 0; j < dr->authority; j++) {
 			struct dns_sub_section *dnssq;
 
-			i = parse_rr_section(ctx, packet, i, len, &dnssq);
+			i = parse_rr_section(ctx, dr, packet, i, len, &dnssq);
 			if (i < 1) {
 				err_msg("cannot parse rr section, I skip this packet");
 				goto err_authority;
@@ -898,8 +934,7 @@ err_answer:
 
 			/* XXX: the error check is here to simplify the
 			 * error path to free() the allocated memory */
-			if (is_valid_type(dnssq->type) != SUCCESS ||
-					is_valid_class(dnssq->class) != SUCCESS) {
+			if (is_valid_type(dnssq->type) != SUCCESS) {
 				err_msg("parsed type %s(%u) or class %s(%u) is not valid, i ignore this request",
 						type_to_str(dnssq->type), dnssq->type,
 						class_to_str(dnssq->class), dnssq->class);
@@ -919,7 +954,7 @@ err_authority:
 		}
 	}
 
-	dr->authority_section_len = i - dr->questions_section_len - dr->answers_section_len;
+	dr->authority_section_len = i - dr->questions_section_len - dr->answers_section_len - DNS_PDU_HEADER_LEN;
 
 	/* parse additional */
 	if (dr->additional > 0) {
@@ -932,7 +967,7 @@ err_authority:
 		for (j = 0; j < dr->additional; j++) {
 			struct dns_sub_section *dnssq;
 
-			i = parse_rr_section(ctx, packet, i, len, &dnssq);
+			i = parse_rr_section(ctx, dr, packet, i, len, &dnssq);
 			if (i < 1) {
 				err_msg("cannot parse rr section, I skip this packet");
 				goto err_additional;
@@ -942,8 +977,7 @@ err_authority:
 
 			/* XXX: the error check is here to simplify the
 			 * error path to free() the allocated memory */
-			if (is_valid_type(dnssq->type) != SUCCESS ||
-					is_valid_class(dnssq->class) != SUCCESS) {
+			if (is_valid_type(dnssq->type) != SUCCESS) {
 				err_msg("parsed type %s(%u) or class %s(%u) is not valid, i ignore this request",
 						type_to_str(dnssq->type), dnssq->type,
 						class_to_str(dnssq->class), dnssq->class);
@@ -965,7 +999,7 @@ err_additional:
 	}
 
 	dr->additional_section_len = i - dr->questions_section_len -
-		dr->answers_section_len - dr->authority_section_len;
+		dr->answers_section_len - dr->authority_section_len - DNS_PDU_HEADER_LEN;
 
 	*dns_pdu = dr;
 	return SUCCESS;

@@ -9,6 +9,8 @@ void rc_set_port(char *);
 void rc_set_verbose_level(char *);
 void rc_set_forwarder_addr(char *);
 void rc_set_forwarder_port(char *);
+void rc_set_edns0_size(char *);
+void rc_set_edns0_mode(char *);
 
 #endif /* RC_H */
 

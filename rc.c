@@ -108,4 +108,42 @@ void rc_set_verbose_level(char *level)
 	abort();
 }
 
+
+void rc_set_edns0_size(char *size)
+{
+	uint16_t imax = xatoi(size);
+	if (imax < 512) {
+		err_msg_die(EXIT_FAILCONF, "edns option max must be greater then 512 byte");
+	}
+
+	if (imax > EDNS0_MAX) {
+		err_msg_die(EXIT_FAILCONF, "edns option max is greater then %d",
+				" we artificial limit this to prevent user errors",
+				"If you need something higher you can send a patch and increase"
+				" EDNS0_MAX", EDNS0_MAX);
+	}
+
+	xctx->cli_opts.edns0_max = imax;
+}
+
+void rc_set_edns0_mode(char *on_off)
+{
+	if (!strcasecmp(on_off, "off")) {
+		 xctx->cli_opts.edns0_mode = 0;
+		 return;
+	} else if (!strcasecmp(on_off, "disable")) {
+		 xctx->cli_opts.edns0_mode = 0;
+		 return;
+	} else if (!strcasecmp(on_off, "on")) {
+		 xctx->cli_opts.edns0_mode = 1;
+		 return;
+	} else if (!strcasecmp(on_off, "enable")) {
+		 xctx->cli_opts.edns0_mode = 1;
+		 return;
+	} else {
+		err_msg_die(EXIT_FAILCONF, "edns0_mode options supports on, off, enable"
+				" and disable but not %s", on_off);
+	}
+}
+
 /* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

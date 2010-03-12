@@ -75,6 +75,17 @@
 	(void) (&_x == &_y);	\
 	_x > _y ? _x : _y; })
 
+#define min_t(type, x, y) ({                    \
+        type __min1 = (x);                      \
+        type __min2 = (y);                      \
+        __min1 < __min2 ? __min1: __min2; })
+
+#define max_t(type, x, y) ({                    \
+        type __max1 = (x);                      \
+        type __max2 = (y);                      \
+        __max1 > __max2 ? __max1: __max2; })
+
+
 #define TIME_GT(x,y) (x->tv_sec > y->tv_sec || (x->tv_sec == y->tv_sec && x->tv_usec > y->tv_usec))
 #define TIME_LT(x,y) (x->tv_sec < y->tv_sec || (x->tv_sec == y->tv_sec && x->tv_usec < y->tv_usec))
 
@@ -203,6 +214,16 @@ struct cli_opts {
 	/* where to forward incoming DNS requests */
 	char *forwarder_addr;
 	char *forwarder_port;
+
+	/* support for ends0 */
+#define	EDNS0_MODE_DEFAULT 1 /* enabled */
+	int edns0_mode;
+/* we define this limit to prevent user configured failures.
+ * In the case that this limit is to small we can adjust this
+ * value to something larger */
+#define	EDNS0_MAX 16384
+#define	EDNS0_DEFAULT 8192
+	uint16_t edns0_max;
 };
 
 struct ctx {
@@ -228,6 +249,15 @@ struct ctx {
 
 	/* passive side (towards the clients) */
 	int client_server_socket;
+
+	/* a buffer with a allocated memory area at program
+	 * start and freed at program end. The purpose is
+	 * to provide a place where the outgoing packet is
+	 * constructed. The maximum size is specified in
+	 * cli_opts->edns0_max (which is per default:
+	 * EDNS0_MAX_DEFAULT) */
+	char *buf;
+	uint16_t buf_max;
 };
 
 /* a incoming request from a resolver */
@@ -290,7 +320,11 @@ struct dns_sub_section {
 	 */
 	int32_t ttl;
 	uint16_t rdlength;
+
+	char *priv_data;
 };
+
+#define	DNS_PDU_HEADER_LEN 12
 
 struct dns_pdu {
 
@@ -319,6 +353,11 @@ struct dns_pdu {
 	struct dns_sub_section **additional_section;
 	const char *additional_section_ptr;
 	size_t additional_section_len;
+
+	uint16_t edns0_max_payload;
+#define	EDNS0_DISABLED 0
+#define	EDNS0_ENABLED 1
+	int16_t  edns0_enabled;
 };
 
 struct dns_pdu_hndl {
@@ -378,10 +417,14 @@ struct dns_journey {
 	struct ctx *ctx;
 
 	/* edns0 related variables. Per default
-	 * edns0 is disabled and the max payload is
-	 * restricted to 512 byte payload. */
+	 * edns0 is disabled to the resolver
+	 * and the max payload is restricted to
+	 * 512 byte payload. This limitation is
+	 * adjusted if the client use EDNS0 and
+	 * allow a larger size, the max_payload_size
+	 * reflects the user accepted payload. */
 #define	DEFAULT_PDU_MAX_PAYLOAD_SIZE 512
-	unsigned max_payload_size;
+	int max_payload_size;
 
 	/* +++ Passive Request Section +++ */
 
@@ -459,6 +502,8 @@ enum rr_section {
 };
 
 
+
+
 /* utils.c */
 extern void average_init(struct average *);
 extern int32_t exponential_average(int32_t, int32_t, uint8_t);
@@ -504,6 +549,7 @@ extern void pretty_print_flags(FILE *, uint16_t);
 extern void free_dns_journey(struct dns_journey *);
 extern void free_dns_journey_list_entry(void *);
 extern void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
+extern struct dns_pdu *alloc_dns_pdu(void);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
@@ -530,8 +576,36 @@ extern int packet_flags_get_rcode(char *);
 
 
 /* cli_opts.c */
-int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
-void free_cli_opts(struct cli_opts *);
+extern int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
+extern void free_cli_opts(struct cli_opts *);
+
+/* type-multiplexer.c */
+extern unsigned type_opts_to_index(uint16_t);
+
+/* type-041-opt.c */
+#define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
+extern const char *type_041_opt_text(void);
+extern int type_041_opt_parse(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+extern int type_041_opt_construct_option(struct dns_journey *, char *, int, size_t);
+extern int type_041_opt_available(struct dns_pdu *);
+
+/* this methods are called if no type function
+ * is registered - it serves as a catch all function */
+extern const char *type_999_generic_text(void);
+extern int type_999_generic_parse(struct ctx *, struct dns_pdu *,struct dns_sub_section *, const char *, int);
+extern int type_999_generic_construct_option(struct dns_journey *, char *, int, size_t);
+extern int type_999_generic_available(struct dns_pdu *);
+
+/* operation for RR types. The new type
+ * must also be actived at type_opts_valid()
+ * in type-multiplexer.c */
+struct type_opts {
+	const char *(*text)(void);
+	int (*parse)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+};
+extern struct type_opts type_opts[];
+#define	TYPE_INDEX_41 0
+#define	TYPE_INDEX_999 1
 
 #endif /* LDNSD_H */
 
