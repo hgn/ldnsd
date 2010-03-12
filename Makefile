@@ -70,7 +70,7 @@ OBJ := ev.o \
 			 cli-opts.o   \
 			 type-multiplexer.o \
 			 type-041-opt.o \
-			 type-999-generic.o
+			 type-generic.o \
 
 
 TARGET := ldnsd

@@ -43,4 +43,40 @@ unsigned type_opts_to_index(uint16_t t)
 }
 
 
+const char *type_999_generic_text(void)
+{
+	return "type 999 generic parser";
+}
+
+
+int type_999_generic_parse(struct ctx *ctx, struct dns_pdu *dr,
+		struct dns_sub_section *dnss, const char *data, int max_len)
+{
+	(void) ctx;
+	(void) dr;
+	(void) dnss;
+	(void) data;
+	(void) max_len;
+
+	return SUCCESS;
+}
+
+int type_999_generic_construct_option(struct dns_journey *dnsj,
+		char *packet, int offset, size_t max_len)
+{
+	(void) dnsj;
+	(void) packet;
+	(void) offset;
+	(void) max_len;
+
+	return 0;
+}
+
+int type_999_generic_available(struct dns_pdu *dns_pdu)
+{
+	(void) dns_pdu;
+
+	return 0;
+}
+
 /* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

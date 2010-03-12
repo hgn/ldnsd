@@ -579,8 +579,6 @@ extern int packet_flags_get_rcode(char *);
 extern int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
 extern void free_cli_opts(struct cli_opts *);
 
-/* type-multiplexer.c */
-extern unsigned type_opts_to_index(uint16_t);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
@@ -589,12 +587,14 @@ extern int type_041_opt_parse(struct ctx *, struct dns_pdu *, struct dns_sub_sec
 extern int type_041_opt_construct_option(struct dns_journey *, char *, int, size_t);
 extern int type_041_opt_available(struct dns_pdu *);
 
-/* this methods are called if no type function
+/* type-generic.c
+ * this methods are called if no type function
  * is registered - it serves as a catch all function */
 extern const char *type_999_generic_text(void);
 extern int type_999_generic_parse(struct ctx *, struct dns_pdu *,struct dns_sub_section *, const char *, int);
 extern int type_999_generic_construct_option(struct dns_journey *, char *, int, size_t);
 extern int type_999_generic_available(struct dns_pdu *);
+extern unsigned type_opts_to_index(uint16_t);
 
 /* operation for RR types. The new type
  * must also be actived at type_opts_valid()
