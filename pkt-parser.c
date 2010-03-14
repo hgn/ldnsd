@@ -103,7 +103,7 @@ void free_dns_pdu(struct dns_pdu *dr)
 }
 
 
-static initialize_dns_pdu(struct dns_pdu *dp)
+static void initialize_dns_pdu(struct dns_pdu *dp)
 {
 	dp->edns0_max_payload = DEFAULT_PDU_MAX_PAYLOAD_SIZE;
 	dp->edns0_enabled = EDNS0_DISABLED; /* sure, if the client signals nothing */

@@ -260,36 +260,6 @@ struct ctx {
 	uint16_t buf_max;
 };
 
-/* a incoming request from a resolver */
-struct dns_request {
-
-	/* the correspondent context */
-	struct ctx *ctx;
-
-	char *packet;
-	size_t len;
-
-	/* caller origin */
-	struct sockaddr_storage src_ss;
-	socklen_t src_ss_len;
-
-	/* request intrinsic values */
-	uint16_t id;
-	uint16_t flags;
-	uint16_t questions;
-	uint16_t answers;
-	uint16_t authority;
-	uint16_t additional;
-
-	struct dns_sub_question **dns_sub_question;
-
-	unsigned type; /* A, AAAA, PTR */
-	struct nameserver *ns; /* a pointer to the used nameserver */
-
-	/* the assosiated timeout for this request */
-	struct ev_entry *ev_timeout;
-};
-
 
 /* see Stevens TCP/IP Illustrated Vol.1
  * page 192 for a great outline */
