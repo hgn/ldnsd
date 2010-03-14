@@ -174,19 +174,20 @@ static inline int construct_additional_section(struct dns_journey *dnsj,
 
 	len = dnsj->p_res_dns_pdu->additional_section_len;
 
-	if (unlikely(dnsj->p_res_dns_pdu->additional <= 0))
-		return 0;
+	/* FIXME: we only generate a additional section if
+	 * the forwarder sent is one - this is not that clever
+	 * because we can also decide to construct a own
+	 * section without the forwarder */
+	if (dnsj->p_res_dns_pdu->additional > 0 &&
+			len < max_len) {
 
-	if (len > max_len)
-		return -1;
+		memcpy(packet + offset, dnsj->p_res_dns_pdu->additional_section_ptr, len);
+		offset += len;
 
-	pr_debug("additional section len: %d", len);
+		dns_packet_set_rr_entries_number(packet, RR_SECTION_ARCOUNT,
+				dnsj->p_res_dns_pdu->authority);
 
-	memcpy(packet + offset, dnsj->p_res_dns_pdu->additional_section_ptr, len);
-	offset += len;
-
-	dns_packet_set_rr_entries_number(packet, RR_SECTION_ARCOUNT,
-			dnsj->p_res_dns_pdu->authority);
+	}
 
 	/* in the case that the resolver send a edns0 option we
 	 * also set this option to signal that we are edns0 aware
@@ -194,6 +195,7 @@ static inline int construct_additional_section(struct dns_journey *dnsj,
 	if (type_041_opt_available(dnsj->p_req_dns_pdu) &&
 			dnsj->ctx->cli_opts.edns0_mode) {
 
+		pr_debug("construct and add edns0 additional section");
 
 		ret = type_041_opt_construct_option(dnsj, packet, offset, max_len);
 		if (ret < 0) {
@@ -235,6 +237,7 @@ static size_t construct_active_response_packet(struct dns_journey *dnsj)
 {
 	int offset, ret, max_len;
 	char *packet = dnsj->ctx->buf;
+	const char *err_label = "";
 
 	max_len  = max_response_packet_len(dnsj);
 	pr_debug("the maximum packet payload size is %d", max_len);
@@ -258,20 +261,26 @@ static size_t construct_active_response_packet(struct dns_journey *dnsj)
 
 
 	ret = construct_authority_section(dnsj, packet, offset, max_len);
-	if (ret < 0) /* authority section is to large; sent answer & question */
+	if (ret < 0) { /* authority section is to large; sent answer & question */
+		err_label = "authority";
 		goto fire_packet;
+	}
 	offset += ret; max_len -= ret;
 
 
 	ret = construct_additional_section(dnsj, packet, offset, max_len);
-	if (ret < 0) /* additional section is to large; sent authority, answer, question */
+	if (ret < 0) { /* additional section is to large; sent authority, answer, question */
+		err_label = "additional";
 		goto fire_packet;
+	}
 	offset += ret; max_len -= ret;
 
 
 	pr_debug("cumulative packet size: %d", offset);
 
 fire_packet:
+	pr_debug("cannot append section %s because of size restrictions",
+			err_label);
 	return offset;
 }
 

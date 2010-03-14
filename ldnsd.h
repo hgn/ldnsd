@@ -304,7 +304,7 @@ struct dns_request {
 #define	FLAG_IS_QR_QUERY(x)              (((x & 0x8000) >> 15) == 0)
 #define	FLAG_IS_OPCODE_STD_QUERY(x)      (((x & 0x7800) >> 11) == 0)
 #define	FLAG_IS_OPCODE_INVERSE_QUERY(x)  (((x & 0x7800) >> 11) == 1)
-#define	FLAG_IS_RCODE_NO_ERROR(x)        ((x & 0x000f) == 0)
+#define	FLAG_IS_RCODE_NO_ERROR(x)         ((x & 0x000f) == 0)
 
 #define	FLAG_RCODE(x) ((x) & 0x000f)
 
