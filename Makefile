@@ -39,7 +39,8 @@ ifndef PERF_DEBUG
   CFLAGS_OPTIMIZE = -O6
 endif
 
-EXTRA_CFLAGS := -DDEBUG
+EXTRA_CFLAGS := -D_GNU_SOURCE
+EXTRA_CFLAGS += -DDEBUG
 
 
 ifdef EPOLL
@@ -68,7 +69,6 @@ OBJ := ev.o \
 			 lex.yy.o     \
 			 rc.o         \
 			 cli-opts.o   \
-			 type-multiplexer.o \
 			 type-041-opt.o \
 			 type-generic.o \
 
@@ -107,3 +107,6 @@ tags:
 
 checkstyle:
 	 /usr/src/linux/scripts/checkpatch.pl --file --terse $(shell ls *.c)
+
+stackusage:
+	objdump -d $(TARGET) | perl /usr/src/linux/scripts/checkstack.pl
