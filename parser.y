@@ -6,6 +6,7 @@
 #include "rc.h"
 
 void yyerror(const char *);
+int yywrap(void);
 
 int yywrap(void)
 {

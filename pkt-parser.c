@@ -453,7 +453,7 @@ void pretty_print_flags(FILE *fp, uint16_t flags)
 }
 
 
-static int get8(const char *data, size_t idx, size_t max, uint8_t *ret)
+int get8(const char *data, size_t idx, size_t max, uint8_t *ret)
 {
 	uint16_t tmp;
 
@@ -466,7 +466,7 @@ static int get8(const char *data, size_t idx, size_t max, uint8_t *ret)
 }
 
 
-static int get16(const char *data, size_t idx, size_t max, uint16_t *ret)
+int get16(const char *data, size_t idx, size_t max, uint16_t *ret)
 {
 	uint16_t tmp;
 
@@ -479,7 +479,7 @@ static int get16(const char *data, size_t idx, size_t max, uint16_t *ret)
 }
 
 
-static int getint32_t(const char *data, size_t idx, size_t max, int32_t *ret)
+int getint32_t(const char *data, size_t idx, size_t max, int32_t *ret)
 {
 	int32_t tmp;
 
@@ -791,27 +791,22 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 	}
 
 	/*
-	   See 3.2.1. Format (http://tools.ietf.org/html/rfc1035)
+	   4.1.2. Question section format
+
+	   The question section is used to carry the "question" in most queries,
+	   i.e., the parameters that define what is being asked.  The section
+	   contains QDCOUNT (usually 1) entries, each of the following format:
 
 	   1  1  1  1  1  1
 	   0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
 	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 	   |                                               |
+	   /                     QNAME                     /
 	   /                                               /
-	   /                      NAME                     /
-	   |                                               |
 	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	   |                      TYPE                     |
+	   |                     QTYPE                     |
 	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	   |                     CLASS                     |
-	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	   |                      TTL                      |
-	   |                                               |
-	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	   |                   RDLENGTH                    |
-	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
-	   /                     RDATA                     /
-	   /                                               /
+	   |                     QCLASS                    |
 	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 	   */
 
@@ -870,6 +865,30 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 
 	dr->questions_section_len = i - DNS_PDU_HEADER_LEN;
 
+	/*
+	   See 3.2.1. Format (http://tools.ietf.org/html/rfc1035)
+
+	   1  1  1  1  1  1
+	   0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                                               |
+	   /                                               /
+	   /                      NAME                     /
+	   |                                               |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                      TYPE                     |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                     CLASS                     |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                      TTL                      |
+	   |                                               |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   |                   RDLENGTH                    |
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
+	   /                     RDATA                     /
+	   /                                               /
+	   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	   */
 	/* parse answers */
 	if (dr->answers > 0) {
 

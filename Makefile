@@ -71,6 +71,7 @@ OBJ := ev.o \
 			 cli-opts.o   \
 			 type-041-opt.o \
 			 type-generic.o \
+			 pkt-generator.o
 
 
 TARGET := ldnsd

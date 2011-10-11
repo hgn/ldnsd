@@ -1,0 +1,10 @@
+
+Signal Handler: Gracefull shutdown at TERM signal so that a user can use kill
+-p <pid> to shutdown the server
+
+Introduce configuration variables for ipv4 und ipv6 bind.  After that the
+socket should listen to this addresses only.
+
+Port randomization for outgoing port. Let the OS choose the emphereal port,
+something strange to limit this is not that clever. On the other hand: how
+rand() is the kernel port selector?

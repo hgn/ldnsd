@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2009 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2009,2010 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -62,6 +62,18 @@
 #ifndef ULLONG_MAX
 # define ULLONG_MAX 18446744073709551615ULL
 #endif
+
+/* the following typedefs are for documentation
+ * and strict type checking - sometimes we will
+ * save some network bytorder encoding instruction
+ * that in network byte order to reduce otherwise
+ * senseless conversion */
+typedef uint16_t le16;
+typedef uint16_t be16;
+typedef uint32_t le32;
+typedef uint32_t be32;
+typedef uint64_t le64;
+typedef uint64_t be64;
 
 #define min(x,y) ({			\
 	typeof(x) _x = (x);		\
@@ -278,6 +290,15 @@ struct ctx {
 
 #define	FLAG_RCODE(x) ((x) & 0x000f)
 
+typedef union
+{
+	void     *ptr;
+	uint8_t   u8;
+	uint16_t  u16;
+	uint32_t  u32;
+} dns_sub_section_data_t __attribute__ ((__transparent_union__));
+
+
 struct dns_sub_section {
 	char *name; /* the already restructed label */
 	uint16_t type;
@@ -286,12 +307,26 @@ struct dns_sub_section {
 	/* ttl specifies the time interval that the resource record
 	 * may be cached before the source of the information should
 	 * again be consulted. Zero values are interpreted to mean
-	 * that the RR can only be used for the transaction in progress
-	 */
+	 * that the RR can only be used for the transaction in progress */
 	int32_t ttl;
 	uint16_t rdlength;
 
-	char *priv_data;
+	/* priv_data is the data followed directly
+	 * after rdlength (if rdlength != 0). But it
+	 * can be also other context sensitive data
+	 * encoded. The generic handler will save rdlength
+	 * lenght data, but more sophisticated ressource records
+	 * can lead to a complex structure. Then priv_data
+	 * can also reflect this structure. To cover some common
+	 * types (A, AAA) we introduced a union type. This speed
+	 * up the handling by preventing malloc/free opertions.
+	 * XXX: AAAA records should also be handled with this mechanism.
+	 * See definition of dns_sub_section_data_t */
+	dns_sub_section_data_t priv_data;
+#define	priv_data_u8 priv_data.u8
+#define	priv_data_u16 priv_data.u16
+#define	priv_data_u32 priv_data.u32
+#define	priv_data_ptr priv_data.ptr
 };
 
 #define	DNS_PDU_HEADER_LEN 12
@@ -327,7 +362,7 @@ struct dns_pdu {
 	uint16_t edns0_max_payload;
 #define	EDNS0_DISABLED 0
 #define	EDNS0_ENABLED 1
-	int16_t  edns0_enabled;
+	int16_t edns0_enabled;
 };
 
 struct dns_pdu_hndl {
@@ -472,8 +507,6 @@ enum rr_section {
 };
 
 
-
-
 /* utils.c */
 extern void average_init(struct average *);
 extern int32_t exponential_average(int32_t, int32_t, uint8_t);
@@ -502,14 +535,14 @@ extern int nameserver_init(struct ctx *);
 
 /* server_side.c */
 extern int adns_request_init(struct ctx *);
-extern int active_dns_request_set(const struct ctx *, struct dns_journey *, int (*cb)(struct dns_journey *));
+extern int active_dns_request_set(struct ctx *, struct dns_journey *, int (*cb)(struct dns_journey *));
 extern int init_server_side(struct ctx *);
 
 /* client_side.c */
 extern void fini_server_socket(int);
 extern int init_client_side(struct ctx *);
 
-/* pkt_parser.c */
+/* pkt-parser.c */
 extern int clone_dns_pkt(char *, size_t, char **, size_t);
 extern int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
 extern struct dns_journey *alloc_dns_journey(void);
@@ -520,6 +553,9 @@ extern void free_dns_journey(struct dns_journey *);
 extern void free_dns_journey_list_entry(void *);
 extern void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
 extern struct dns_pdu *alloc_dns_pdu(void);
+extern int get8(const char *, size_t, size_t, uint8_t *);
+extern int get16(const char *, size_t, size_t, uint16_t *);
+extern int getint32_t(const char *, size_t, size_t, int32_t *);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
@@ -562,7 +598,9 @@ extern int type_041_opt_available(struct dns_pdu *);
  * is registered - it serves as a catch all function */
 extern const char *type_999_generic_text(void);
 extern int type_999_generic_parse(struct ctx *, struct dns_pdu *,struct dns_sub_section *, const char *, int);
-extern int type_999_generic_construct_option(struct dns_journey *, char *, int, size_t);
+extern int type_999_generic_destruct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int, int);
+extern int type_999_generic_construct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+extern void type_999_generic_free(struct ctx *, struct dns_sub_section *);
 extern int type_999_generic_available(struct dns_pdu *);
 extern unsigned type_opts_to_index(uint16_t);
 
@@ -570,12 +608,38 @@ extern unsigned type_opts_to_index(uint16_t);
  * must also be actived at type_opts_valid()
  * in type-multiplexer.c */
 struct type_opts {
+	/* returns a description of this type */
 	const char *(*text)(void);
 	int (*parse)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+	/* construct generates a blob based on the struct dns_sub_section
+	 * priv_data section.
+	 * Construct return the size of the constructed data blob or -1
+	 * for a error */
+	int (*construct)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+	/* destruct parses the packet rr and save relevant information
+	 * in priv_data. For A records this are 4 byte in priv_data */
+	int (*destruct)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int, int);
+	/* free frees the priv_data pointer, in the
+	 * simplest case this is a pointer to free */
+	void (*free)(struct ctx *, struct dns_sub_section *);
 };
 extern struct type_opts type_opts[];
-#define	TYPE_INDEX_41 0
-#define	TYPE_INDEX_999 1
+#define	TYPE_INDEX_999 0
+
+#define MAX_LABELS 128
+/* Structures used to implement name compression */
+struct dnslabel_entry { char *v; off_t pos; };
+struct dnslabel_table {
+	int n_labels; /* number of current entries */
+	/* map from name to position in message */
+	struct dnslabel_entry labels[MAX_LABELS];
+};
+
+
+/* pkt-generator.c */
+extern int pkt_construct_dns_query(struct ctx *, struct dns_journey *, char *,
+		int, uint16_t, uint16_t , uint16_t, char *, size_t);
+extern off_t dnsname_to_labels(char *, size_t, off_t, const char *, const int, struct dnslabel_table *);
 
 #endif /* LDNSD_H */
 

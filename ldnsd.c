@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2009 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2009,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -83,7 +83,7 @@ int main(int ac, char **av)
 	int ret, flags = 0;
 	struct ctx *ctx;
 
-	fprintf(stdout, "ldnsd - a lighweight caching and forwarding DNS server (C) 2009\n");
+	fprintf(stdout, "ldnsd - a lighweight caching and forwarding DNS server (C) 2009-2011\n");
 
 	ret = initiate_seed();
 	if (ret == FAILURE) {
@@ -133,7 +133,3 @@ int main(int ac, char **av)
 
 	return EXIT_SUCCESS;
 }
-
-
-
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

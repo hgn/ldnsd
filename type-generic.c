@@ -25,16 +25,18 @@
  * Additionaly you must adjust type_opts_to_index()
  * to recognize the new option. Thats all */
 struct type_opts type_opts[] = {
-	{ type_041_opt_text, type_041_opt_parse },
-	{ type_999_generic_text, type_999_generic_parse }
+	{
+		.text      = type_999_generic_text,
+		.parse     = type_999_generic_parse,
+		.construct = type_999_generic_construct,
+		.destruct  = type_999_generic_destruct,
+		.free      = type_999_generic_free
+	}
 };
 
 unsigned type_opts_to_index(uint16_t t)
 {
 	switch (t) {
-		case 41:
-			return TYPE_INDEX_41;
-			break;
 		default:
 			return TYPE_INDEX_999;
 			break;
@@ -61,16 +63,88 @@ int type_999_generic_parse(struct ctx *ctx, struct dns_pdu *dr,
 	return SUCCESS;
 }
 
-int type_999_generic_construct_option(struct dns_journey *dnsj,
-		char *packet, int offset, size_t max_len)
+int type_999_generic_construct(struct ctx *ctx, struct dns_pdu *dp,
+		struct dns_sub_section *dss, const char *data, int max_len)
 {
-	(void) dnsj;
-	(void) packet;
-	(void) offset;
-	(void) max_len;
+	int i = 0;
+
+	if (max_len < 0) {
+		pr_debug("packet buffer to small");
+		return -1;
+	}
+
+	/* 1. build the name (labels) */
+	i += dnsname_to_labels(data, max_len, i,
+			dss->name, strlen(dss->name), NULL);
+
+	/* 2. the type */
+	/* 3. the name */
+	/* 4. the ttl */
+	/* 5. rdlength */
+	/* 6. copy the transparent the data, based
+	 *    on information found in the rdlength field */
 
 	return 0;
 }
+
+/* i is a offset that points to the next byte after the name */
+int type_999_generic_destruct(struct ctx *ctx, struct dns_pdu *dp,
+		struct dns_sub_section *dss, const char *packet, int offset, int max_len)
+{
+	int i = offset;
+
+	(void) ctx; (void) dp;
+
+	i += get16(packet, i, max_len, &dss->type);
+	i += get16(packet, i, max_len, &dss->class);
+	i += getint32_t(packet, i, max_len, &dss->ttl);
+	i += get16(packet, i, max_len, &dss->rdlength);
+
+	switch (dss->rdlength) {
+		case 1:
+			dss->priv_data_u8 = *(uint8_t *)(packet + i);
+		case 2:
+			/* FIXME: this can cause a SIGBUS */
+			dss->priv_data_u16 = *(uint16_t *)(packet + i);
+		case 3:
+			/* FIXME: 3 byte? -> normally a error and
+			 * should be ignored and traced */
+			dss->priv_data_u32 = *(uint32_t *)(packet + i);
+		case 4:
+			dss->priv_data_u32 = *(uint32_t *)(packet + i);
+		default:
+			dss->priv_data_ptr = xmalloc(dss->rdlength);
+			memcpy(dss->priv_data_ptr, (packet + i), dss->rdlength);
+	}
+
+	return i + dss->rdlength;
+}
+
+/* type_999_generic_free - free related data */
+void type_999_generic_free(struct ctx *ctx, struct dns_sub_section *dss)
+{
+	(void) ctx;
+	/* ok it is a little bit complicated here:
+	 * we know the actual length of the data section
+	 * because rdlength tell us that. Second: we had
+	 * a container element that can hold a) a pointer
+	 * to a self alllocated memory or b) to a {uint32_t, uint16_t, uint8_t}
+	 * datatype.
+	 * The idea is simple: if rdlength tell us that the data length
+	 * fit into one of this skalar datatypes we dont need no dynamic
+	 * allocated and therefore no free afterwards */
+	switch (dss->rdlength) {
+		case 0: /* fits in the union */
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+			return;
+		default: /* dynamic allocated memory */
+			free(dss->priv_data_ptr);
+	}
+}
+
 
 int type_999_generic_available(struct dns_pdu *dns_pdu)
 {

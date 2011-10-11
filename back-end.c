@@ -170,25 +170,41 @@ static inline int construct_authority_section(struct dns_journey *dnsj,
 static inline int construct_additional_section(struct dns_journey *dnsj,
 		char *packet, int offset, int max_len)
 {
+	int i;
 	int ret, len;
+	uint16_t type;
+	uint16_t additional_section_no = dnsj->p_res_dns_pdu->additional;
 
 	len = dnsj->p_res_dns_pdu->additional_section_len;
+
+	/* construct the additional section, using the
+	 * separated sections */
+	for (i = 0; i < additional_section_no; i++) {
+		type = dnsj->p_res_dns_pdu->additional_section[i]->type;
+		ret += type_opts[type_opts_to_index(type)].construct(dnsj->ctx,
+				dnsj->p_res_dns_pdu, dnsj->p_res_dns_pdu->additional_section[i],
+				packet + offset, max_len - offset);
+		if (ret < 0) {
+			/* FIXME: error handling is b0rken */
+			err_msg_die(EXIT_FAILINT, "ret is smaller!");
+		}
+		offset += ret;
+	}
 
 	/* FIXME: we only generate a additional section if
 	 * the forwarder sent is one - this is not that clever
 	 * because we can also decide to construct a own
 	 * section without the forwarder */
-	if (dnsj->p_res_dns_pdu->additional > 0 &&
-			len < max_len) {
+	if (additional_section_no > 0 && len < max_len) {
 
 		memcpy(packet + offset, dnsj->p_res_dns_pdu->additional_section_ptr, len);
 		offset += len;
 
 		dns_packet_set_rr_entries_number(packet, RR_SECTION_ARCOUNT,
-				dnsj->p_res_dns_pdu->authority);
-
+				additional_section_no);
 	}
 
+#if 0
 	/* in the case that the resolver send a edns0 option we
 	 * also set this option to signal that we are edns0 aware
 	 * if the local configuration does not disable edns0 of course */
@@ -208,9 +224,10 @@ static inline int construct_additional_section(struct dns_journey *dnsj,
 		offset += ret; len += ret;
 
 		dns_packet_set_rr_entries_number(packet,
-				RR_SECTION_ARCOUNT, dnsj->p_res_dns_pdu->additional + 1);
+				RR_SECTION_ARCOUNT, additional_section_no + 1);
 
 	}
+#endif
 
 	return len;
 }
@@ -521,5 +538,3 @@ int init_client_side(struct ctx *ctx)
 }
 
 
-
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */
