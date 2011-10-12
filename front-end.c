@@ -32,7 +32,7 @@ static int internal_request_tx(struct ctx *ctx,
 
 	(void) ctx;
 
-	pr_debug("send active pdu request to nameserver via sendto");
+	pr_debug("send active pdu request to nameserver via write()");
 
 	ret = write(dnsj->ns->socket, dnsj->a_req_packet, dnsj->a_req_packet_len);
 	if (ret == (ssize_t)dnsj->a_req_packet_len)

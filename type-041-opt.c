@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2010 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2010,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -102,6 +102,3 @@ int type_041_opt_available(struct dns_pdu *dp)
 }
 
 
-
-
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

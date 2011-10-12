@@ -131,9 +131,8 @@ off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
 /* pkt_construct_dns_query - construct a DNS packet for DNS
  * forwarder */
 int pkt_construct_dns_query(struct ctx *ctx, struct dns_journey *dnsj,
-		char *name, int name_len,
-    uint16_t trans_id, uint16_t type, uint16_t class,
-    char *buf, size_t buf_len) {
+		char *name, int name_len, uint16_t trans_id, uint16_t type,
+		uint16_t class, char *buf, size_t buf_len) {
 	off_t j = 0;  /* current offset into buf */
 	uint16_t _t;	 /* used by the macros */
 
@@ -175,7 +174,3 @@ int pkt_construct_dns_query(struct ctx *ctx, struct dns_journey *dnsj,
  overflow:
 	return -1;
 }
-
-
-
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

@@ -87,7 +87,7 @@ static void fire_error(struct dns_journey *dnsj)
 	abort();
 }
 
-static inline int construct_header_question_section(struct dns_journey *dnsj,
+static int construct_header_question_section(struct dns_journey *dnsj,
 		char *packet, int offset, int max_len)
 {
 	int len = DNS_PDU_HEADER_LEN + dnsj->p_req_dns_pdu->questions_section_len;
@@ -123,7 +123,7 @@ static inline int construct_header_question_section(struct dns_journey *dnsj,
 }
 
 
-static inline int construct_answer_section(struct dns_journey *dnsj,
+static int construct_answer_section(struct dns_journey *dnsj,
 		char *packet, int offset, int max_len)
 {
 	int len = dnsj->p_res_dns_pdu->answers_section_len;
@@ -145,7 +145,7 @@ static inline int construct_answer_section(struct dns_journey *dnsj,
 }
 
 
-static inline int construct_authority_section(struct dns_journey *dnsj,
+static int construct_authority_section(struct dns_journey *dnsj,
 		char *packet, int offset, int max_len)
 {
 	int len = dnsj->p_res_dns_pdu->authority_section_len;
@@ -167,13 +167,15 @@ static inline int construct_authority_section(struct dns_journey *dnsj,
 }
 
 
-static inline int construct_additional_section(struct dns_journey *dnsj,
+static int construct_additional_section(struct dns_journey *dnsj,
 		char *packet, int offset, int max_len)
 {
 	int i;
 	int ret, len;
 	uint16_t type;
 	uint16_t additional_section_no = dnsj->p_res_dns_pdu->additional;
+
+	ret = 0;
 
 	len = dnsj->p_res_dns_pdu->additional_section_len;
 
@@ -183,10 +185,11 @@ static inline int construct_additional_section(struct dns_journey *dnsj,
 		type = dnsj->p_res_dns_pdu->additional_section[i]->type;
 		ret += type_opts[type_opts_to_index(type)].construct(dnsj->ctx,
 				dnsj->p_res_dns_pdu, dnsj->p_res_dns_pdu->additional_section[i],
-				packet + offset, max_len - offset);
+				packet + offset, max_len);
 		if (ret < 0) {
 			/* FIXME: error handling is b0rken */
-			err_msg_die(EXIT_FAILINT, "ret is smaller!");
+			err_msg_die(EXIT_FAILINT, "ret is smaller (%d, max_len: %d, offset: %d)",
+					ret, max_len, offset);
 		}
 		offset += ret;
 	}
@@ -204,7 +207,6 @@ static inline int construct_additional_section(struct dns_journey *dnsj,
 				additional_section_no);
 	}
 
-#if 0
 	/* in the case that the resolver send a edns0 option we
 	 * also set this option to signal that we are edns0 aware
 	 * if the local configuration does not disable edns0 of course */
@@ -227,7 +229,6 @@ static inline int construct_additional_section(struct dns_journey *dnsj,
 				RR_SECTION_ARCOUNT, additional_section_no + 1);
 
 	}
-#endif
 
 	return len;
 }
@@ -267,6 +268,7 @@ static size_t construct_active_response_packet(struct dns_journey *dnsj)
 		return FAILURE;
 	}
 	offset += ret; max_len -= ret;
+	pr_debug("after header question: remaining len: %d, offset: %d", max_len, offset);
 
 
 	ret = construct_answer_section(dnsj, packet, offset, max_len);
@@ -275,6 +277,7 @@ static size_t construct_active_response_packet(struct dns_journey *dnsj)
 		return FAILURE;
 	}
 	offset += ret; max_len -= ret;
+	pr_debug("after answer section: remaining len: %d, offset: %d", max_len, offset);
 
 
 	ret = construct_authority_section(dnsj, packet, offset, max_len);
@@ -283,6 +286,7 @@ static size_t construct_active_response_packet(struct dns_journey *dnsj)
 		goto fire_packet;
 	}
 	offset += ret; max_len -= ret;
+	pr_debug("after authority question: remaining len: %d, offset: %d", max_len, offset);
 
 
 	ret = construct_additional_section(dnsj, packet, offset, max_len);
@@ -291,9 +295,12 @@ static size_t construct_active_response_packet(struct dns_journey *dnsj)
 		goto fire_packet;
 	}
 	offset += ret; max_len -= ret;
+	pr_debug("after additional question: remaining len: %d, offset: %d", max_len, offset);
 
 
 	pr_debug("cumulative packet size: %d", offset);
+
+	return offset;
 
 fire_packet:
 	pr_debug("cannot append section %s because of size restrictions",

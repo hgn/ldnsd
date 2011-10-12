@@ -181,10 +181,29 @@ static int nameserver_match(const void *a1, const void *a2)
 {
 	const struct nameserver *ns1, *ns2;
 
-	ns1 = a1;
-	ns2 = a2;
+	ns1 = a1; ns2 = a2;
 
-	return !memcmp(ns1, ns2, sizeof(*ns1));
+	if (ns1->address_len != ns2->address_len)
+		return 0;
+
+	if (ns1->address.ss_family != ns2->address.ss_family)
+		return 0;
+
+
+	switch (ns1->address.ss_family)
+	{
+	case AF_INET:
+	case AF_INET6:
+		/* compare family, address, port (and probably flowinfo and
+		 * scope_id; if AF_INET6) */
+		return !memcmp(&ns1->address, &ns2->address, ns1->address_len);
+		break;
+	default:
+		err_msg_die(EXIT_FAILNET, "unknown network protocol detected!");
+		break;
+	}
+
+	return 0;
 }
 
 

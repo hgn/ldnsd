@@ -728,6 +728,13 @@ static unsigned parse_rr_section(struct ctx *ctx, struct dns_pdu *dr,
 	ret = type_opts[type_opts_to_index(dnssq->type)].parse(
 			ctx, dr, dnssq, packet + type_offset,
 			max_len - type_offset);
+	if (ret != SUCCESS) {
+		i += dnssq->rdlength;
+		free(dnssq->name);
+		free(dnssq);
+		*dnssq_ret = NULL;
+		return -1;
+	}
 
 	pr_debug("parsed type: %s(%u), parsed class: %s (%u)ttl: %u rdlength: %u",
 			type_to_str(dnssq->type), dnssq->type,
@@ -813,6 +820,8 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 	/* parse queuestions */
 	if (dr->questions > 0) {
 
+		pr_debug("parse section: questions");
+
 		dr->questions_section = xzalloc(sizeof(struct dns_sub_section *) * dr->questions);
 
 		/* save offset of this section */
@@ -892,6 +901,8 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 	/* parse answers */
 	if (dr->answers > 0) {
 
+		pr_debug("parse section: answers");
+
 		dr->answers_section = xzalloc(sizeof(struct dns_sub_section *) * dr->answers);
 
 		/* save offset of this section */
@@ -935,6 +946,8 @@ err_answer:
 	/* parse authority */
 	if (dr->authority > 0) {
 
+		pr_debug("parse section: authority");
+
 		dr->authority_section = xzalloc(sizeof(struct dns_sub_section *) * dr->authority);
 
 		/* save offset of this section */
@@ -977,6 +990,8 @@ err_authority:
 
 	/* parse additional */
 	if (dr->additional > 0) {
+
+		pr_debug("parse section: additional");
 
 		dr->additional_section = xzalloc(sizeof(struct dns_sub_section *) * dr->additional);
 
