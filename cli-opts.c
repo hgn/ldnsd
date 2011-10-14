@@ -25,13 +25,21 @@
 #include <sys/stat.h>
 #include <getopt.h>
 
+static int nameserver_rc_match(const void *a, const void *b)
+{
+	return !strcmp(a, b);
+}
+
 
 static void set_default_options(struct cli_opts *opts)
 {
 	memset(opts, 0, sizeof(*opts));
 
+	opts->forwarder_list = list_create(nameserver_rc_match, free);
+	if (!opts->forwarder_list)
+		err_msg_die(EXIT_FAILNET, "cannot create list");
+
 	opts->port           = xstrdup(DEFAULT_LISTEN_PORT);
-	opts->forwarder_addr = xstrdup(DEFAULT_NS);
 	opts->forwarder_port = xstrdup(DEFAULT_NS_PORT);
 	opts->edns0_mode     = EDNS0_MODE_DEFAULT;
 	opts->edns0_max      = EDNS0_DEFAULT;
@@ -45,8 +53,7 @@ void free_cli_opts(struct cli_opts *opts)
 	if (opts->port)
 		free(opts->port);
 
-	if (opts->forwarder_addr)
-		free(opts->forwarder_addr);
+	list_destroy(opts->forwarder_list);
 
 	if (opts->forwarder_port)
 		free(opts->forwarder_port);

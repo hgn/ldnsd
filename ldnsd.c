@@ -123,6 +123,10 @@ int main(int ac, char **av)
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize client side");
 
+	ret = init_cache(ctx);
+	if (ret != SUCCESS)
+		err_msg_die(EXIT_FAILMISC, "cannot initialize cache");
+
 	ev_loop(ctx->ev_hndl, flags);
 
 	fini_server_socket(ctx->client_server_socket);

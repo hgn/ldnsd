@@ -129,7 +129,6 @@ void x_err_ret(const char *file, int line_no, const char *fmt, ...)
 	va_start(ap, fmt);
 	err_doit(0, file, line_no, fmt, ap);
 	va_end(ap);
-	return;
 }
 
 
@@ -264,6 +263,20 @@ char *xstrdup(const char *s)
 		err_sys_die(EXIT_FAILMEM, "failed to duplicate string");
 
 	return ptr;
+}
+
+void hex_print(char *ptr, size_t len)
+{
+	size_t i;
+	char *c;
+
+	for (i = 0; i < len; i++) {
+		c = ptr;
+		fprintf(stderr, "%02hhx ", c[i]);
+		if (i != 0 && i % 16 == 0)
+			fputs("\n", stderr);
+	}
+	fputs("\n", stderr);
 }
 
 

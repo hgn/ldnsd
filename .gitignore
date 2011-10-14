@@ -11,6 +11,12 @@
 *.lst
 *.elf
 
+# generated files
+ldnsd
+lex.yy.c
+parser.tab.c
+parser.tab.h
+
 #
 # Top-level generic files
 #

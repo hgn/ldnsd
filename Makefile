@@ -71,6 +71,7 @@ OBJ := ev.o \
 			 cli-opts.o   \
 			 type-041-opt.o \
 			 type-generic.o \
+			 cache.o \
 			 pkt-generator.o
 
 
@@ -83,7 +84,7 @@ TARGET := ldnsd
 all: $(TARGET)
 
 lex.yy.c: lexer.l
-	flex lexer.l
+	flex --nounistd lexer.l
 
 parser.tab.c: parser.y
 	bison -d parser.y

@@ -11,7 +11,6 @@ void rc_set_forwarder_addr(char *);
 void rc_set_forwarder_port(char *);
 void rc_set_edns0_size(char *);
 void rc_set_edns0_mode(char *);
+void rc_set_select_ns_strategy(char *);
 
 #endif /* RC_H */
-
-/* vim:set ts=4 sw=4 sts=4 tw=78 ff=unix noet: */

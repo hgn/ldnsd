@@ -9,6 +9,8 @@
 #define	FAILURE -1
 #define	SUCCESS  0
 
+/* FIXME: don't exit, return a failure code instead */
+
 static void *xzalloc(size_t l)
 {
 	void *p = malloc(l);

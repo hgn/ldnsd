@@ -119,13 +119,13 @@ typedef uint64_t be64;
 #define err_sys_die(exitcode, format, args...) \
 	do { \
 		x_err_sys(__FILE__, __LINE__, format , ## args); \
-		exit( exitcode ); \
+		abort(); \
 	} while (0)
 
 #define err_msg_die(exitcode, format, args...) \
 	do { \
 		x_err_ret(__FILE__, __LINE__,  format , ## args); \
-		exit( exitcode ); \
+		abort(); \
 	} while (0)
 
 #define	pr_debug(format, args...) \
@@ -224,7 +224,7 @@ struct cli_opts {
 	char *port;
 
 	/* where to forward incoming DNS requests */
-	char *forwarder_addr;
+	struct list *forwarder_list;
 	char *forwarder_port;
 
 	/* support for ends0 */
@@ -238,9 +238,35 @@ struct cli_opts {
 	uint16_t edns0_max;
 };
 
+enum {
+	CACHE_BACKEND_NONE,
+	CACHE_BACKEND_MEMORY
+};
+
+/* all cache backends must support these operations */
+struct cache {
+	int (*get)(void);
+	int (*add)(void);
+	int (*remove)(void);
+	int (*update)(void);
+};
+
+enum ns_select_strategy {
+	FIRST,
+	RANDOM,
+	TIME,
+
+	UNSUPPORTED,
+};
+
+#define DEFAULT_NS_SELECT_STRATEGY FIRST
+
 struct ctx {
 	struct ev *ev_hndl;
+
 	struct list *nameserver_list;
+	enum ns_select_strategy ns_select_strategy;
+
 	struct cli_opts cli_opts;
 
 	/* new constructed DNS REQUESTS who are
@@ -261,6 +287,9 @@ struct ctx {
 
 	/* passive side (towards the clients) */
 	int client_server_socket;
+
+	int cache_backend;
+	struct cache *cache;
 
 	/* a buffer with a allocated memory area at program
 	 * start and freed at program end. The purpose is
@@ -527,6 +556,7 @@ extern void xfree(void *);
 extern int nodelay(int, int);
 extern void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct addrinfo **);
 extern char *xstrdup(const char *);
+extern void hex_print(char *, size_t);
 
 /* nameserver.c */
 extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
@@ -585,6 +615,8 @@ extern int packet_flags_get_rcode(char *);
 extern int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
 extern void free_cli_opts(struct cli_opts *);
 
+/* cache.c */
+int init_cache(struct ctx *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */

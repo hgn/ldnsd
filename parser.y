@@ -27,6 +27,10 @@ int yylex(void);
 %token PORT EDNS0MODE EDNS0SIZE
 
 %token <word>  WORD VERBOSELEVEL FORWARDERADDR FORWARDERPORT
+%token <word>  FORWARDERS
+%token <word>  BRACEON
+%token <word>  BRACEOFF
+%token <word>  FORWARDERSSELECTSTRATEGY
 
 /* rules */
 %%
@@ -39,9 +43,16 @@ commands:
 
 command:     PORT WORD    { rc_set_port($2); }
 		|        VERBOSELEVEL WORD  { rc_set_verbose_level($2); }
-		|        FORWARDERADDR WORD  { rc_set_forwarder_addr($2); }
-		|        FORWARDERPORT WORD  { rc_set_forwarder_port($2); }
 		|        EDNS0MODE WORD  { rc_set_edns0_mode($2); }
 		|        EDNS0SIZE WORD  { rc_set_edns0_size($2); }
+		|        FORWARDERADDR WORD  { rc_set_forwarder_addr($2); }
+		|        FORWARDERPORT WORD  { rc_set_forwarder_port($2); }
+		|        FORWARDERSSELECTSTRATEGY WORD  { rc_set_select_ns_strategy($2); }
+		|        FORWARDERS BRACEON forwarderlist BRACEOFF
     ;
+
+forwarderlist:
+		 | forwarderlist WORD { rc_set_forwarder_addr($2); }
+
+
 

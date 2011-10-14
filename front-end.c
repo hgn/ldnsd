@@ -421,6 +421,24 @@ static void nameserver_read_event(int fd, int what, void *data)
 	}
 }
 
+static int add_nameserver_rc_list(void *ns_str, void *vctx)
+{
+	int ret;
+	char *ns = ns_str;
+	struct ctx *ctx = vctx;
+
+	ret = nameserver_add(ctx, ns,
+			ctx->cli_opts.forwarder_port, nameserver_read_event);
+	if (ret != SUCCESS) {
+		err_msg("cannot add default nameserver: %s", ns_str);
+		/* we don't break here, because the next one
+		 * may be fine. So we iterate over the whole list
+		 * and always return SUCCESS */
+	}
+
+	return SUCCESS;
+}
+
 
 int init_server_side(struct ctx *ctx)
 {
@@ -432,10 +450,10 @@ int init_server_side(struct ctx *ctx)
 		return FAILURE;
 	}
 
-	ret = nameserver_add(ctx, ctx->cli_opts.forwarder_addr, ctx->cli_opts.forwarder_port,
-			nameserver_read_event);
+	ret = list_for_each(ctx->cli_opts.forwarder_list,
+			add_nameserver_rc_list, (void *)ctx);
 	if (ret != SUCCESS) {
-		err_msg("cannot add default nameserver: %s", DEFAULT_NS);
+		err_msg("failure in adding nameserver from config file");
 		return FAILURE;
 	}
 

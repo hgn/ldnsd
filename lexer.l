@@ -24,6 +24,10 @@ forwarderaddr                    { return FORWARDERADDR; }
 forwarderport                    { return FORWARDERPORT; }
 edns0-mode                       { return EDNS0MODE; }
 edns0-size                       { return EDNS0SIZE; }
+forwarders                       { return FORWARDERS; }
+forwarders-select-strategy       { return FORWARDERSSELECTSTRATEGY; }
+\{                               { return BRACEON; }
+\}                               { return BRACEOFF; }
 [a-zA-Z0-9./][a-zA-Z0-9_./]*     { yylval.word = strdup(yytext); return WORD; }
 \n.*                             { strncpy(lexerrbuff, yytext + 1, MAXLEXERR - 1);
                                    lineno++;
