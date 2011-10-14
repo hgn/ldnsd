@@ -562,6 +562,8 @@ extern void hex_print(char *, size_t);
 extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
 extern struct nameserver *nameserver_select(const struct ctx *);
 extern int nameserver_init(struct ctx *);
+extern enum ns_select_strategy ns_select_strategy_to_enum(const char *);
+
 
 /* server_side.c */
 extern int adns_request_init(struct ctx *);
@@ -674,5 +676,3 @@ extern int pkt_construct_dns_query(struct ctx *, struct dns_journey *, char *,
 extern off_t dnsname_to_labels(char *, size_t, off_t, const char *, const int, struct dnslabel_table *);
 
 #endif /* LDNSD_H */
-
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */
