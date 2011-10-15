@@ -182,6 +182,8 @@ enum ns_status {
 struct nameserver {
 	int socket; /* a connected UDP socket */
 
+	char *ip;
+
 	struct sockaddr_storage address;
 	socklen_t address_len;
 
@@ -251,15 +253,15 @@ struct cache {
 	int (*update)(void);
 };
 
+/* the first strategy is the default strategy. You
+ * can reorder this if you want */
 enum ns_select_strategy {
-	FIRST,
+	FIRST = 0,
 	RANDOM,
 	TIME,
 
 	UNSUPPORTED,
 };
-
-#define DEFAULT_NS_SELECT_STRATEGY FIRST
 
 struct ctx {
 	struct ev *ev_hndl;

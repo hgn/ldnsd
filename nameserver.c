@@ -32,8 +32,11 @@ static struct nameserver *nameserver_alloc(void)
 }
 
 
-static void nameserver_free(void *ns)
+static void nameserver_free(void *nsp)
 {
+	struct nameserver *ns = nsp;
+	if (ns->ip)
+		free(ns->ip);
 	free(ns);
 }
 
@@ -132,6 +135,7 @@ int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port,
 
 
 	ns = nameserver_alloc();
+	ns->ip = xstrdup(ns_str);
 
 	ret = ev_set_non_blocking(fd);
 	if (ret != EV_SUCCESS) {
@@ -181,8 +185,57 @@ static struct nameserver *nameserver_first(const struct ctx *ctx)
 }
 
 
+static void nameserver_id(struct nameserver *ns)
+{
+	return ns->ip;
+}
+
+
+static struct nameserver *nameserver_random(const struct ctx *ctx)
+{
+	int ret = 0, selected;
+	struct nameserver *ns;
+	struct list_element *ele;
+	struct list *ns_list = ctx->nameserver_list;
+
+	if (ns_list->size < 1)
+		return NULL;
+
+	selected = random() % ns_list->size;
+
+	for (ele = list_head(ns_list); ele != NULL;) {
+		if (!selected--) {
+			ns = list_data(ele);
+			pr_debug("select ns %s", ns->ip);
+			return ns;
+		}
+		ele = list_next(ele);
+	}
+
+	return list_data(list_head(ns_list));
+}
+
+
 struct nameserver *nameserver_select(const struct ctx *ctx)
 {
+	pr_debug("select nameserver for query");
+
+	switch (ctx->ns_select_strategy) {
+	case FIRST:
+		return nameserver_first(ctx);
+		break;
+	case RANDOM:
+		return nameserver_random(ctx);
+		break;
+	case TIME:
+		break;
+	case UNSUPPORTED: /* fall-through */
+	default:
+		err_msg("internal error, nameserver selection stragety unknown");
+		/* this should never happend, but we are liberal and
+		 * return the first one */
+	}
+
 	return nameserver_first(ctx);
 }
 
@@ -217,8 +270,6 @@ int nameserver_init(struct ctx *ctx)
 	ctx->nameserver_list = list_create(nameserver_match, nameserver_free);
 	if (!ctx->nameserver_list)
 		return FAILURE;
-
-	ctx->ns_select_strategy = DEFAULT_NS_SELECT_STRATEGY;
 
 	return SUCCESS;
 }

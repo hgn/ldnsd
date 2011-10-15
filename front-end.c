@@ -467,4 +467,3 @@ int init_server_side(struct ctx *ctx)
 }
 
 
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

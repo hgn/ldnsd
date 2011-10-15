@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2009,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2009,2010,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -83,7 +83,7 @@ int main(int ac, char **av)
 	int ret, flags = 0;
 	struct ctx *ctx;
 
-	fprintf(stdout, "ldnsd - a lighweight caching and forwarding DNS server (C) 2009-2011\n");
+	fprintf(stdout, "ldnsd - a fast and small DNS server (C) 2009-2011\n");
 
 	ret = initiate_seed();
 	if (ret == FAILURE) {
@@ -126,6 +126,7 @@ int main(int ac, char **av)
 	ret = init_cache(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize cache");
+
 
 	ev_loop(ctx->ev_hndl, flags);
 
