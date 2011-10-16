@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2010 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2010,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -489,7 +489,7 @@ static void incoming_request(int fd, int what, void *data)
 	}
 
 	while (666) { /* iterate until the kernel rx queue is empty */
-		rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr*) &ss, &ss_len);
+		rc = recvfrom(fd, packet, MAX_PACKET_LEN, 0, (struct sockaddr *) &ss, &ss_len);
 		if (rc < 0) {
 			if (errno == EAGAIN)
 				return;

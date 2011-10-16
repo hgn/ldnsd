@@ -173,6 +173,18 @@ typedef uint64_t be64;
 #define DNS_CLASS_INET   1
 
 
+/* see http://www.ces.clemson.edu/linux/ipw2200_averages.shtml
+ * for a comparision between exponential averaging and RC low
+ * pass filtering */
+#define AVG_ENTRIES 8
+struct average {
+	int32_t entries[AVG_ENTRIES];
+	uint8_t pos;
+	uint8_t init;
+	uint64_t sum;
+};
+
+
 enum ns_status {
 	NS_STATUS_NEW = 1,
 	NS_STATUS_ALIVE,
@@ -183,6 +195,9 @@ struct nameserver {
 	int socket; /* a connected UDP socket */
 
 	char *ip;
+
+	/* rtt stored in ms */
+	struct average rtt_average;
 
 	struct sockaddr_storage address;
 	socklen_t address_len;
@@ -266,8 +281,19 @@ enum ns_select_strategy {
 struct ctx {
 	struct ev *ev_hndl;
 
+	/* successful request responses */
+	unsigned long long succ_req_res;
+
 	struct list *nameserver_list;
 	enum ns_select_strategy ns_select_strategy;
+
+	/* only required for strategy "time" */
+	int ns_time_select_threshold;
+	int ns_time_select_re_threshold;
+
+	/* is selected_ns != NULL then the
+	 * selection was successfull */
+	struct nameserver *selected_ns;
 
 	struct cli_opts cli_opts;
 
@@ -524,17 +550,6 @@ struct dns_journey {
 #define	MAX_PACKET_LEN 2048
 
 
-/* see http://www.ces.clemson.edu/linux/ipw2200_averages.shtml
- * for a comparision between exponential averaging and RC low
- * pass filtering */
-#define AVG_ENTRIES 8
-struct average {
-	int32_t entries[AVG_ENTRIES];
-	uint8_t pos;
-	uint8_t init;
-	uint64_t sum;
-};
-
 enum rr_section {
 	RR_SECTION_QDCOUNT = 1,
 	RR_SECTION_ANCOUNT,
@@ -570,8 +585,10 @@ extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(i
 extern struct nameserver *nameserver_select(const struct ctx *);
 extern int nameserver_init(struct ctx *);
 extern enum ns_select_strategy ns_select_strategy_to_enum(const char *);
-extern void nameserver_update_rtt(struct nameserver *, struct timeval *);
+extern void nameserver_update_rtt(struct ctx *, struct nameserver *, struct timeval *);
 extern const char *nameserver_id(struct nameserver *);
+extern void nameserver_update_statistic(struct ctx *);
+extern int nameserver_size(struct ctx *);
 
 
 /* server_side.c */

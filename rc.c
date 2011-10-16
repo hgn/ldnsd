@@ -133,6 +133,26 @@ void rc_set_verbose_level(char *level)
 	abort();
 }
 
+void rc_set_ns_time_select_threshold(char *threshold)
+{
+	int imax = xatoi(threshold);
+	if (imax < 1)
+		err_msg_die(EXIT_FAILCONF, "time select threshold option"
+				" must be greater then 0");
+
+	xctx->ns_time_select_threshold = imax;
+}
+
+void rc_set_ns_time_re_select_threshold(char *threshold)
+{
+	int imax = xatoi(threshold);
+	if (imax < 1)
+		err_msg_die(EXIT_FAILCONF, "time select re threshold option"
+				" must be greater then 0");
+
+	xctx->ns_time_select_re_threshold = imax;
+}
+
 
 void rc_set_edns0_size(char *size)
 {

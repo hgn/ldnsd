@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2009,2010 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2009,2010,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,16 +19,15 @@
 #include "ldnsd.h"
 #include "clist.h"
 
-enum nameserver_status {
-	WORKING = 1,
-	NON_WORKING,
-	UNTESTET,
-};
-
 
 static struct nameserver *nameserver_alloc(void)
 {
-	return xzalloc(sizeof(struct nameserver));
+	struct nameserver *ns = xzalloc(sizeof(struct nameserver));
+
+	ns->status = NS_STATUS_NEW;
+	average_init(&ns->rtt_average);
+
+	return ns;
 }
 
 
@@ -159,8 +158,6 @@ int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port,
 		return FAILURE;
 	}
 
-
-
 	ret = list_insert(ctx->nameserver_list, ns);
 	if (ret != SUCCESS) {
 		err_msg("cannot insert nameserver into global nameserver list");
@@ -174,6 +171,12 @@ int nameserver_add(struct ctx *ctx, const char *ns_str, const char *ns_port,
 }
 
 
+const char *nameserver_id(struct nameserver *ns)
+{
+	return ns->ip;
+}
+
+
 static struct nameserver *nameserver_first(const struct ctx *ctx)
 {
 	struct list *ns_list = ctx->nameserver_list;
@@ -182,12 +185,6 @@ static struct nameserver *nameserver_first(const struct ctx *ctx)
 		return NULL;
 
 	return list_data(list_head(ns_list));
-}
-
-
-const char *nameserver_id(struct nameserver *ns)
-{
-	return ns->ip;
 }
 
 
@@ -206,7 +203,7 @@ static struct nameserver *nameserver_random(const struct ctx *ctx)
 	for (ele = list_head(ns_list); ele != NULL;) {
 		if (!selected--) {
 			ns = list_data(ele);
-			pr_debug("select ns %s", ns->ip);
+			pr_debug("select ns %s", nameserver_id(ns));
 			return ns;
 		}
 		ele = list_next(ele);
@@ -216,18 +213,35 @@ static struct nameserver *nameserver_random(const struct ctx *ctx)
 }
 
 
+static struct nameserver *nameserver_time(const struct ctx *ctx)
+{
+	if (ctx->selected_ns)
+		return ctx->selected_ns;
+
+	/* we reused the random function. A better idea
+	 * may a ordered return value, but this at least requires
+	 * an additional uint8_t at least. We trust in the random
+	 * generator ability that the resulsts are uniform
+	 * distributed. */
+	return nameserver_random(ctx);
+}
+
+
 struct nameserver *nameserver_select(const struct ctx *ctx)
 {
-	pr_debug("select nameserver for query");
 
 	switch (ctx->ns_select_strategy) {
 	case FIRST:
+		pr_debug("select nameserver for query (first strategy)");
 		return nameserver_first(ctx);
 		break;
 	case RANDOM:
+		pr_debug("select nameserver for query (random strategy)");
 		return nameserver_random(ctx);
 		break;
 	case TIME:
+		pr_debug("select nameserver for query (time strategy)");
+		return nameserver_time(ctx);
 		break;
 	case UNSUPPORTED: /* fall-through */
 	default:
@@ -265,11 +279,103 @@ enum ns_select_strategy ns_select_strategy_to_enum(const char *str)
 }
 
 
-void nameserver_update_rtt(struct nameserver *ns, struct timeval *tv)
+void nameserver_update_rtt(struct ctx *ctx, struct nameserver *ns, struct timeval *tv)
 {
-	(void) ns;
+	float rtt = tv_to_sec(tv) * 1000.0;
 
-	pr_debug("request/response rtt: %.4lf", tv_to_sec(tv));
+	/* we recevied a response, therefore ALIVE ... ;) */
+	ns->status = NS_STATUS_ALIVE;
+
+	pr_debug("request/response rtt: %.4f msec for ns %s",
+			rtt, nameserver_id(ns));
+
+	/* for nameserver time selection we must
+	 * account some more statistics */
+	if (ctx->ns_select_strategy == TIME)
+		average_add(&ns->rtt_average, (uint32_t) rtt);
+}
+
+
+static void select_time_strategy_update(struct ctx *ctx)
+{
+	pr_debug("updating time select strategy data");
+
+	if (ctx->succ_req_res % ctx->ns_time_select_re_threshold == 0) {
+		/* we reset everything and re-start the nameserver
+		 * selection process */
+
+		struct list_element *ele;
+		struct list *ns_list = ctx->nameserver_list;
+		struct nameserver *ns;
+
+		for (ele = list_head(ns_list); ele != NULL; ele = list_next(ele)) {
+			ns = list_data(ele);
+			average_init(&ns->rtt_average);
+		}
+
+		ctx->selected_ns = NULL;
+		return;
+	}
+
+	/* we select a new one after ns_time_select_threshold
+	 * successful request/responses after the initial start
+	 * and after re-selecting */
+	if (!ctx->selected_ns &&
+			ctx->succ_req_res % ctx->ns_time_select_threshold == 0) {
+
+		/* ok, enough requests/responses sent/received
+		 * time to select the best[TM] nameserver */
+		struct list_element *ele;
+		struct list *ns_list = ctx->nameserver_list;
+		struct nameserver *ns;
+		int32_t val, minrtt = INT32_MAX;
+
+		assert(ns_list->size > 0);
+
+		for (ele = list_head(ns_list); ele != NULL;) {
+			ns = list_data(ele);
+			val = average_value(&ns->rtt_average);
+			if (val == 0) {
+				/* this might[TM] be a hack. But seems
+				 * to the most clever solution here. ;-)
+				 * average_value might return 0 in the
+				 * case the average list is not initialized
+				 * But we won't at least select one nameserver
+				 * So we return a extrem bad value (which is
+				 * better then INT32_MAX) so we are able to
+				 * select at least one nameserver --HGN */
+				val = INT32_MAX - 1;
+			}
+			pr_debug("time select ns %s: average: %dms",
+					nameserver_id(ns), val);
+
+			if (val < minrtt) {
+				pr_debug("new default ns: %s",
+						nameserver_id(ns), val);
+				ctx->selected_ns = ns;
+				minrtt = val;
+			}
+
+			ele = list_next(ele);
+		}
+	}
+}
+
+
+/* this function is called after a successfull request
+ * response packet */
+void nameserver_update_statistic(struct ctx *ctx)
+{
+	pr_debug("updating nameserver statistics (%d)", ctx->ns_select_strategy);
+
+	if (ctx->ns_select_strategy == TIME)
+		select_time_strategy_update(ctx);
+}
+
+
+int nameserver_size(struct ctx *ctx)
+{
+	return list_size(ctx->nameserver_list);
 }
 
 

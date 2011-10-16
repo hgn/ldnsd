@@ -96,12 +96,12 @@ $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(EXTLIBS) -o $(TARGET) $(OBJ)
 
 clean:
-	-rm -f $(OBJ) $(TARGET) core lex.yy.c parser.tab.h parser.tab.c *~
-	-rm -f cscope* tags
+	$(RM) -f $(OBJ) $(TARGET) core lex.yy.c parser.tab.h parser.tab.c *~
+	$(RM) -f cscope* tags
 
 cscope:
-	rm -f cscope*
-	find . -name '*.[hcS]' -print0 | xargs -0 cscope -b
+	$(RM) -f cscope*
+	$(FIND) . -name '*.[hcS]' -print0 | xargs -0 cscope -b
 
 tags:
 	$(RM) tags

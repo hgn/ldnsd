@@ -309,7 +309,7 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 			gettimeofday(&dns_j->res_time, NULL);
 			assert(dns_j->ns);
 			subtime(&dns_j->res_time, &dns_j->req_time, &tv_res);
-			nameserver_update_rtt(dns_j->ns, &tv_res);
+			nameserver_update_rtt(dns_j->ctx, dns_j->ns, &tv_res);
 
 			/* this calls response_cb() for the server[TM] version
 			 * or a user defined callback in the case of a library
@@ -326,6 +326,10 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 			ret = list_remove(dns_j->ctx->inflight_request_list, (void **)&dns_j_match);
 			if (ret != SUCCESS || dns_j_match != dns_j)
 				err_msg_die(EXIT_FAILINT, "failure in list remove of inflight list");
+
+			/* last but not least we do some statistics */
+			dns_j->ctx->succ_req_res++;
+			nameserver_update_statistic(dns_j->ctx);
 
 			/* now delete/free the journey data structure, everything
 			 * is handled and the process for this journey is closed */
@@ -358,7 +362,6 @@ static void process_dns_response(struct ctx *ctx, const char *packet, const size
 {
 	int ret;
 	struct dns_pdu *dns_pdu;
-	struct dns_response *dns_response;
 
 	(void) ss;
 	(void) ss_len;
@@ -398,7 +401,6 @@ static void process_dns_response(struct ctx *ctx, const char *packet, const size
 
 err:
 	free(dns_pdu);
-	free(dns_response);
 }
 
 /* a nameserver send us some data

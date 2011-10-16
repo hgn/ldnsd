@@ -65,10 +65,18 @@ static void ev_free_hndl(struct ev *ev)
 	ev_free(ev);
 }
 
+#define DEFAULT_NS_TIME_SELECT_THRESHOLD 100
+#define	DEFAULT_TIME_SELECT_RE_THRESHOLD 1000
 
-static struct ctx *alloc_ctx(void)
+
+static struct ctx *ctx_init(void)
 {
-	return xzalloc(sizeof(struct ctx));
+	struct ctx *ctx = xzalloc(sizeof(struct ctx));
+
+	ctx->ns_time_select_threshold = DEFAULT_NS_TIME_SELECT_THRESHOLD;
+	ctx->ns_time_select_re_threshold = DEFAULT_TIME_SELECT_RE_THRESHOLD;
+
+	return ctx;
 }
 
 
@@ -90,7 +98,7 @@ int main(int ac, char **av)
 		err_msg("PRNG cannot be initialized satisfying (fallback to time(3) and getpid(3))");
 	}
 
-	ctx = alloc_ctx();
+	ctx = ctx_init();
 
 	ctx->ev_hndl = ev_init_hdntl();
 
