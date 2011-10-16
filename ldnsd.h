@@ -480,6 +480,11 @@ struct dns_journey {
 	struct sockaddr_storage p_req_ss;
 	socklen_t p_req_ss_len;
 
+	/* for statistics. We timestamp
+	 * when we send a packet and we timestamp
+	 * when we receive the corresponging response */
+	struct timeval req_time;
+	struct timeval res_time;
 
 	/* ###
 	 * # Active Request Section */

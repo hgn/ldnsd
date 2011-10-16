@@ -34,6 +34,12 @@ static int internal_request_tx(struct ctx *ctx,
 
 	pr_debug("send active pdu request to nameserver via write()");
 
+	/* we now timestamp the packet, this reflect the
+	 * time where the request is transmitted. Later at
+	 * receive time (response) we can calculate the time
+	 * for one DNS RTT */
+	gettimeofday(&dnsj->req_time, NULL);
+
 	ret = write(dnsj->ns->socket, dnsj->a_req_packet, dnsj->a_req_packet_len);
 	if (ret == (ssize_t)dnsj->a_req_packet_len)
 		return SUCCESS;
