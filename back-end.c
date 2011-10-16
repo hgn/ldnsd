@@ -364,6 +364,11 @@ static int enqueue_request(struct ctx *ctx, struct dns_journey *dns_journey)
 	char *name;
 	uint16_t type, class;
 
+	(void) class;
+	(void) type;
+	(void) name;
+
+
 	assert(dns_journey);
 	assert(dns_journey->p_req_dns_pdu->questions == 1);
 

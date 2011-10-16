@@ -68,13 +68,16 @@ int type_999_generic_construct(struct ctx *ctx, struct dns_pdu *dp,
 {
 	int i = 0;
 
+	(void) ctx;
+	(void) dp;
+
 	if (max_len < 0) {
 		pr_debug("packet buffer to small");
 		return -1;
 	}
 
 	/* 1. build the name (labels) */
-	i += dnsname_to_labels(data, max_len, i,
+	i += dnsname_to_labels((char *)data, max_len, i,
 			dss->name, strlen(dss->name), NULL);
 
 	/* 2. the type */

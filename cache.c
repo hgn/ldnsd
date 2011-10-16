@@ -17,12 +17,93 @@
 */
 
 #include "ldnsd.h"
+#include "cache.h"
 
-int init_cache(struct ctx *ctx)
+int cache_init(struct ctx *ctx)
 {
-	ctx->cache_backend = CACHE_BACKEND_NONE;
-	ctx->cache = NULL;
+	switch (ctx->cache_backend) {
+		case CACHE_BACKEND_NONE:
+			pr_debug("initialize cache backend \"none\"");
+			return SUCCESS;
+			break;
+		case CACHE_BACKEND_MEMORY:
+			pr_debug("initialize cache backend \"memory\"");
+			return cache_memory_init(ctx);
+			break;
+		default:
+			err_msg_die(EXIT_FAILMISC,
+				"programmed error: cache strategy not supported");
+	}
 
 	return SUCCESS;
 }
 
+int cache_free(struct ctx *ctx)
+{
+	switch (ctx->cache_backend) {
+		case CACHE_BACKEND_NONE:
+			pr_debug("free none cache backend");
+			return SUCCESS;
+			break;
+		case CACHE_BACKEND_MEMORY:
+			pr_debug("free cache backend \"memory\"");
+			return cache_memory_free(ctx);
+			break;
+		default:
+			err_msg_die(EXIT_FAILMISC,
+				"programmed error: cache strategy not supported");
+	}
+
+	return SUCCESS;
+}
+
+int cache_add(struct ctx *ctx, struct dns_pdu *key, struct dns_pdu *res)
+{
+	switch (ctx->cache_backend) {
+		case CACHE_BACKEND_NONE:
+			return SUCCESS;
+			break;
+		case CACHE_BACKEND_MEMORY:
+			return cache_memory_add(ctx, key, res);
+			break;
+		default:
+			err_msg_die(EXIT_FAILMISC,
+				"programmed error: cache strategy not supported");
+	}
+
+	return SUCCESS;
+}
+
+int cache_remove(struct ctx *ctx, struct dns_pdu *key)
+{
+	switch (ctx->cache_backend) {
+		case CACHE_BACKEND_NONE:
+			return FAILURE;
+			break;
+		case CACHE_BACKEND_MEMORY:
+			return cache_memory_remove(ctx, key);
+			break;
+		default:
+			err_msg_die(EXIT_FAILMISC,
+				"programmed error: cache strategy not supported");
+	}
+
+	return SUCCESS;
+}
+
+int cache_get(struct ctx *ctx, struct dns_pdu *key, struct dns_pdu *ret_pdu)
+{
+	switch (ctx->cache_backend) {
+		case CACHE_BACKEND_NONE:
+			return FAILURE;
+			break;
+		case CACHE_BACKEND_MEMORY:
+			return cache_memory_get(ctx, key, ret_pdu);
+			break;
+		default:
+			err_msg_die(EXIT_FAILMISC,
+				"programmed error: cache strategy not supported");
+	}
+
+	return SUCCESS;
+}

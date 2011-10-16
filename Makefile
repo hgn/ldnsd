@@ -72,6 +72,7 @@ OBJ := ev.o \
 			 type-041-opt.o \
 			 type-generic.o \
 			 cache.o \
+			 cache-memory.o \
 			 pkt-generator.o
 
 
@@ -89,6 +90,12 @@ lex.yy.c: lexer.l
 parser.tab.c: parser.y
 	bison -d parser.y
 
+lex.yy.o: lex.yy.c
+	$(CC) -ggdb3 -std=gnu99 $(CFLAGS_OPTIMIZE) -c $< -o $@
+
+parser.tab.o: parser.tab.c
+	$(CC) -ggdb3 -std=gnu99 $(CFLAGS_OPTIMIZE) -c $< -o $@
+
 %.o : %.c ldnsd.h hosts.h
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
 
@@ -97,6 +104,8 @@ $(TARGET): $(OBJ)
 
 clean:
 	$(RM) -f $(OBJ) $(TARGET) core lex.yy.c parser.tab.h parser.tab.c *~
+
+distclean: clean
 	$(RM) -f cscope* tags
 
 cscope:

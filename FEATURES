@@ -1,0 +1,13 @@
+
+o if several forwarders are specified the most valuable is selected
+
+	- if both are operating then the time is measured and
+	  after a few samples the best is picked for a specified amount
+		of time.
+
+	- If one forwarder do not response within e specified time
+	  then the fallback if back to one of the other nameservers
+
+	- If a nameserver is detected to be unoperational, then this
+	  nameserver is server is marked as beeing unoperational and avoided.
+		After a predefined time then nameserver is re-probed again.

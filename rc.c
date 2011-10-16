@@ -193,4 +193,16 @@ void rc_set_edns0_mode(char *on_off)
 	}
 }
 
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */
+
+void rc_set_cache_backend(char *backend)
+{
+	if (!strcasecmp(backend, "none")) {
+		 xctx->cache_backend = CACHE_BACKEND_NONE;
+		 return;
+	} else if (!strcasecmp(backend, "memory")) {
+		 xctx->cache_backend = CACHE_BACKEND_MEMORY;
+		 return;
+	} else {
+		err_msg_die(EXIT_FAILCONF, "cache backend \"%s\" not supported", backend);
+	}
+}

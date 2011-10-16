@@ -33,6 +33,7 @@ int yylex(void);
 %token <word>  FORWARDERSSELECTSTRATEGY
 %token <word>  FORWARDERSTIMESELECTTHRESHOLD
 %token <word>  FORWARDERSTIMERESELECTTHRESHOLD
+%token <word>  CACHEBACKEND
 
 /* rules */
 %%
@@ -52,6 +53,7 @@ command:     PORT WORD    { rc_set_port($2); }
 		|        FORWARDERSSELECTSTRATEGY WORD  { rc_set_select_ns_strategy($2); }
 		|        FORWARDERSTIMESELECTTHRESHOLD WORD  { rc_set_ns_time_select_threshold($2); }
 		|        FORWARDERSTIMERESELECTTHRESHOLD WORD  { rc_set_ns_time_re_select_threshold($2); }
+		|        CACHEBACKEND WORD  { rc_set_cache_backend($2); }
 		|        FORWARDERS BRACEON forwarderlist BRACEOFF
     ;
 

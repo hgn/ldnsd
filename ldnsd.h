@@ -260,13 +260,6 @@ enum {
 	CACHE_BACKEND_MEMORY
 };
 
-/* all cache backends must support these operations */
-struct cache {
-	int (*get)(void);
-	int (*add)(void);
-	int (*remove)(void);
-	int (*update)(void);
-};
 
 /* the first strategy is the default strategy. You
  * can reorder this if you want */
@@ -644,7 +637,11 @@ extern int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
 extern void free_cli_opts(struct cli_opts *);
 
 /* cache.c */
-int init_cache(struct ctx *);
+int cache_init(struct ctx *);
+int cache_free(struct ctx *);
+int cache_add(struct ctx *, struct dns_pdu *, struct dns_pdu *);
+int cache_remove(struct ctx *, struct dns_pdu *);
+int cache_get(struct ctx *, struct dns_pdu *, struct dns_pdu *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */

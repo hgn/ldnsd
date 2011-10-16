@@ -12,5 +12,8 @@ void rc_set_forwarder_port(char *);
 void rc_set_edns0_size(char *);
 void rc_set_edns0_mode(char *);
 void rc_set_select_ns_strategy(char *);
+void rc_set_ns_time_select_threshold(char *);
+void rc_set_ns_time_re_select_threshold(char *);
+void rc_set_cache_backend(char *);
 
 #endif /* RC_H */

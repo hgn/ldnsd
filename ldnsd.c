@@ -20,7 +20,6 @@
 #include "rc.h"
 
 
-
 static int initiate_seed(void)
 {
 	ssize_t ret;
@@ -75,6 +74,8 @@ static struct ctx *ctx_init(void)
 
 	ctx->ns_time_select_threshold = DEFAULT_NS_TIME_SELECT_THRESHOLD;
 	ctx->ns_time_select_re_threshold = DEFAULT_TIME_SELECT_RE_THRESHOLD;
+
+	ctx->cache_backend = CACHE_BACKEND_MEMORY;
 
 	return ctx;
 }
@@ -131,7 +132,7 @@ int main(int ac, char **av)
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize client side");
 
-	ret = init_cache(ctx);
+	ret = cache_init(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize cache");
 
@@ -140,6 +141,7 @@ int main(int ac, char **av)
 
 	fini_server_socket(ctx->client_server_socket);
 	ev_free_hndl(ctx->ev_hndl);
+	cache_free(ctx);
 	free_cli_opts(&ctx->cli_opts);
 	free(ctx->buf);
 	free_ctx(ctx);

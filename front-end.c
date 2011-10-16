@@ -192,8 +192,16 @@ int active_dns_request_set(struct ctx *ctx,
 	int ret;
 
 	assert(dnsj);
+	assert(cb);
 
 	/* 1. search local cache first */
+#if 0
+	ret = cache_get(dnsj);
+	if (ret == SUCCESS) {
+		/* in cache ... */
+
+	}
+#endif
 
 
 	/* 2. ok we didn't found anything in the
