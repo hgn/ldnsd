@@ -185,7 +185,7 @@ static struct nameserver *nameserver_first(const struct ctx *ctx)
 }
 
 
-static void nameserver_id(struct nameserver *ns)
+const char *nameserver_id(struct nameserver *ns)
 {
 	return ns->ip;
 }
@@ -193,7 +193,7 @@ static void nameserver_id(struct nameserver *ns)
 
 static struct nameserver *nameserver_random(const struct ctx *ctx)
 {
-	int ret = 0, selected;
+	int selected;
 	struct nameserver *ns;
 	struct list_element *ele;
 	struct list *ns_list = ctx->nameserver_list;
@@ -262,6 +262,14 @@ enum ns_select_strategy ns_select_strategy_to_enum(const char *str)
 		return TIME;
 	else
 		return UNSUPPORTED;
+}
+
+
+void nameserver_update_rtt(struct nameserver *ns, struct timeval *tv)
+{
+	(void) ns;
+
+	pr_debug("request/response rtt: %.4lf", tv_to_sec(tv));
 }
 
 

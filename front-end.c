@@ -283,6 +283,7 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 	for (i = 0; i < dns_pdu_r->questions; i++) {
 		struct dns_sub_section *dnsss = dns_pdu_r->questions_section[i];
 		struct dns_journey *dns_j_match;
+		struct timeval tv_res;
 
 		/* FIXME: copy and free the name */
 		r_name  = dnsss->name;
@@ -302,6 +303,13 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 			/* ok, we found the element, now break
 			 * the list processing */
 			dns_j->p_res_dns_pdu = dns_pdu_r;
+
+			/* ok, we timestamp the packet now and update
+			 * the timedelta */
+			gettimeofday(&dns_j->res_time, NULL);
+			assert(dns_j->ns);
+			subtime(&dns_j->res_time, &dns_j->req_time, &tv_res);
+			nameserver_update_rtt(dns_j->ns, &tv_res);
 
 			/* this calls response_cb() for the server[TM] version
 			 * or a user defined callback in the case of a library

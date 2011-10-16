@@ -176,7 +176,7 @@ typedef uint64_t be64;
 enum ns_status {
 	NS_STATUS_NEW = 1,
 	NS_STATUS_ALIVE,
-	NS_STATUS_DEAD,
+	NS_STATUS_DEAD, /* unoperational */
 };
 
 struct nameserver {
@@ -570,6 +570,8 @@ extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(i
 extern struct nameserver *nameserver_select(const struct ctx *);
 extern int nameserver_init(struct ctx *);
 extern enum ns_select_strategy ns_select_strategy_to_enum(const char *);
+extern void nameserver_update_rtt(struct nameserver *, struct timeval *);
+extern const char *nameserver_id(struct nameserver *);
 
 
 /* server_side.c */
