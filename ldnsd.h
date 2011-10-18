@@ -97,6 +97,7 @@ typedef uint64_t be64;
         type __max2 = (y);                      \
         __max1 > __max2 ? __max1: __max2; })
 
+#define stringify(x...) #x
 
 #define TIME_GT(x,y) (x->tv_sec > y->tv_sec || (x->tv_sec == y->tv_sec && x->tv_usec > y->tv_usec))
 #define TIME_LT(x,y) (x->tv_sec < y->tv_sec || (x->tv_sec == y->tv_sec && x->tv_usec < y->tv_usec))
@@ -119,13 +120,13 @@ typedef uint64_t be64;
 #define err_sys_die(exitcode, format, args...) \
 	do { \
 		x_err_sys(__FILE__, __LINE__, format , ## args); \
-		abort(); \
+		exit(exitcode); \
 	} while (0)
 
 #define err_msg_die(exitcode, format, args...) \
 	do { \
 		x_err_ret(__FILE__, __LINE__,  format , ## args); \
-		abort(); \
+		exit(exitcode); \
 	} while (0)
 
 #define	pr_debug(format, args...) \
@@ -156,6 +157,9 @@ typedef uint64_t be64;
 #define	DEFAULT_NS "8.8.8.8"
 #define	DEFAULT_NS_PORT "53"
 
+#define DEFAULT_TTL 86400 /* 24 hours */
+#define TTL_MIN 10 /* seconds */
+#define TTL_MAX (7*86400) /* one weak */
 
 #define	RANDPOOLSRC "/dev/urandom"
 
@@ -169,6 +173,8 @@ typedef uint64_t be64;
 #define DNS_TYPE_MX     15
 #define DNS_TYPE_TXT    16
 #define DNS_TYPE_AAAA   28
+
+#define	DNS_TYPE_INVALID -1
 
 #define DNS_CLASS_INET   1
 
@@ -311,6 +317,8 @@ struct ctx {
 
 	int cache_backend;
 	struct cache *cache;
+
+	struct list *zone_filename_list;
 
 	/* a buffer with a allocated memory area at program
 	 * start and freed at program end. The purpose is
@@ -572,6 +580,7 @@ extern int nodelay(int, int);
 extern void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct addrinfo **);
 extern char *xstrdup(const char *);
 extern void hex_print(char *, size_t);
+extern int ip_valid_addr(int, const char *);
 
 /* nameserver.c */
 extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
@@ -637,11 +646,14 @@ extern int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
 extern void free_cli_opts(struct cli_opts *);
 
 /* cache.c */
-int cache_init(struct ctx *);
-int cache_free(struct ctx *);
-int cache_add(struct ctx *, struct dns_pdu *, struct dns_pdu *);
-int cache_remove(struct ctx *, struct dns_pdu *);
-int cache_get(struct ctx *, struct dns_pdu *, struct dns_pdu *);
+extern int cache_init(struct ctx *);
+extern int cache_free(struct ctx *);
+extern int cache_add(struct ctx *, struct dns_pdu *, struct dns_pdu *);
+extern int cache_remove(struct ctx *, struct dns_pdu *);
+extern int cache_get(struct ctx *, struct dns_pdu *, struct dns_pdu *);
+
+/* zone-parser.c */
+extern int parse_zonefiles(struct ctx *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */

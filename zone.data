@@ -1,0 +1,4 @@
+# comment
+A +86400 	a.example.net.	 192.168.1.1
+AAAA +86400 a.example.net. 2001:0DB8::1
+TXT  +86400 example.net. 'This is some text'

@@ -42,8 +42,7 @@ struct list *list_create(int (*match)(const void *key1, const void *key2),
 }
 
 
-void
-list_destroy(struct list *list)
+void list_destroy(struct list *list)
 {
 	void *data = NULL;
 

@@ -206,3 +206,21 @@ void rc_set_cache_backend(char *backend)
 		err_msg_die(EXIT_FAILCONF, "cache backend \"%s\" not supported", backend);
 	}
 }
+
+void rc_set_zonefile(char *zonefile)
+{
+	int ret;
+	char *buf;
+
+	if (strlen(zonefile) < 1)
+		err_msg_die(EXIT_FAILCONF, "filename length to small");
+
+	buf = xstrdup(zonefile);
+
+	ret = list_insert(xctx->zone_filename_list, buf);
+	if (ret != SUCCESS) {
+		err_msg("Cannot add filename to list");
+	}
+
+	pr_debug("add file \"%s\" to zone file list", zonefile);
+}

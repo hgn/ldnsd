@@ -29,6 +29,7 @@ forwarders-select-strategy       { return FORWARDERSSELECTSTRATEGY; }
 forwarders-time-select-threshold { return FORWARDERSTIMESELECTTHRESHOLD; }
 forwarders-time-re-select-threshold { return FORWARDERSTIMERESELECTTHRESHOLD; }
 cache-backend                    { return CACHEBACKEND; }
+zonefile                         { return ZONEFILE; }
 \{                               { return BRACEON; }
 \}                               { return BRACEOFF; }
 [a-zA-Z0-9./][a-zA-Z0-9_./]*     { yylval.word = strdup(yytext); return WORD; }

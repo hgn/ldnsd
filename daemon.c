@@ -18,12 +18,9 @@
 
 #include  "ldnsd.h"
 
-
 #include <fcntl.h>
 #include <sys/stat.h>
-
 #include <unistd.h>
-
 #include <syslog.h>
 
 /* signale stuff */
@@ -89,7 +86,7 @@ init_pidfile(void)
 		fclose(lockfp);
 
 		flock_strct.l_type   = F_WRLCK;   /* write lock */
-		flock_strct.l_whence = SEEK_SET; 
+		flock_strct.l_whence = SEEK_SET;
 		flock_strct.l_len    = 0;
 		flock_strct.l_start  = 0;
 		flock_strct.l_pid    = 0;

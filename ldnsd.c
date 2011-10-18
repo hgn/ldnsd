@@ -19,6 +19,9 @@
 #include "ldnsd.h"
 #include "rc.h"
 
+#define DEFAULT_NS_TIME_SELECT_THRESHOLD 100
+#define	DEFAULT_TIME_SELECT_RE_THRESHOLD 1000
+
 
 static int initiate_seed(void)
 {
@@ -64,16 +67,38 @@ static void ev_free_hndl(struct ev *ev)
 	ev_free(ev);
 }
 
-#define DEFAULT_NS_TIME_SELECT_THRESHOLD 100
-#define	DEFAULT_TIME_SELECT_RE_THRESHOLD 1000
+
+/* return true if both strings are equal or false otherwise */
+static int zone_filename_match(const void *a1, const void *a2)
+{
+	const char *name1 = a1, *name2 = a2;
+
+	return !strncmp(name1, name2, min(strlen(name1), strlen(name2)));
+}
+
+
+static int init_zone_filename_list(struct ctx *ctx)
+{
+	ctx->zone_filename_list = list_create(zone_filename_match, free);
+	if (!ctx->zone_filename_list)
+		return FAILURE;
+
+	return SUCCESS;
+}
 
 
 static struct ctx *ctx_init(void)
 {
+	int ret;
+
 	struct ctx *ctx = xzalloc(sizeof(struct ctx));
 
 	ctx->ns_time_select_threshold = DEFAULT_NS_TIME_SELECT_THRESHOLD;
 	ctx->ns_time_select_re_threshold = DEFAULT_TIME_SELECT_RE_THRESHOLD;
+
+	ret = init_zone_filename_list(ctx);
+	if (ret != SUCCESS)
+		return NULL;
 
 	ctx->cache_backend = CACHE_BACKEND_MEMORY;
 
@@ -92,7 +117,7 @@ int main(int ac, char **av)
 	int ret, flags = 0;
 	struct ctx *ctx;
 
-	fprintf(stdout, "ldnsd - a fast and small DNS server (C) 2009-2011\n");
+	fprintf(stdout, "ldnsd - a fast and scalable DNS server (C) 2009-2011\n");
 
 	ret = initiate_seed();
 	if (ret == FAILURE) {
@@ -100,6 +125,8 @@ int main(int ac, char **av)
 	}
 
 	ctx = ctx_init();
+	if (!ctx)
+		err_msg_die(EXIT_FAILMISC, "Cannot initialize context");
 
 	ctx->ev_hndl = ev_init_hdntl();
 
@@ -135,6 +162,11 @@ int main(int ac, char **av)
 	ret = cache_init(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize cache");
+
+	ret = parse_zonefiles(ctx);
+	if (ret != SUCCESS)
+		err_msg_die(EXIT_FAILMISC, "Failed to parse zone files");
+
 
 
 	ev_loop(ctx->ev_hndl, flags);

@@ -17,7 +17,7 @@
 */
 
 #include "ldnsd.h"
-
+#include <arpa/inet.h>
 
 
 void average_init(struct average *a)
@@ -54,7 +54,7 @@ int32_t average_value(struct average *avg)
 }
 
 int subtime(struct timeval *op1, struct timeval *op2,
-				   struct timeval *result)
+		struct timeval *result)
 {
 	int borrow = 0, sign = 0;
 	struct timeval *temp_time;
@@ -279,5 +279,15 @@ void hex_print(char *ptr, size_t len)
 	fputs("\n", stderr);
 }
 
+/* return bool */
+int ip_valid_addr(int family, const char *str)
+{
+	int ret;
+	char buf[sizeof(struct in6_addr)];
 
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */
+	ret = inet_pton(family, str, buf);
+	if (ret <= 0)
+		return 0;
+
+	return 1;
+}

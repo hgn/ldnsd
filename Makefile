@@ -73,6 +73,7 @@ OBJ := ev.o \
 			 type-generic.o \
 			 cache.o \
 			 cache-memory.o \
+			 zone-parser.o  \
 			 pkt-generator.o
 
 
