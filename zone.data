@@ -1,14 +1,42 @@
-# Example Zone File
+# Example Zone File for LDNSD
+# 
+# List of Record Types:
+# 	o http://en.wikipedia.org/wiki/List_of_DNS_record_types
+
+
 A +86401 	a.example.net.	 192.168.1.1
 A b.example.net.	 192.168.1.2
 
-AAAA +86401 a.example.net. 2001:0DB8::1
+
+AAAA +1h a.example.net. 2001:0DB8::1
+
 
 # mail exchange record
 #   zone
 # 	priority field
 # 	name of the mail exchanger
 MX example.net. 10 a.example.net.
-MX example.net. 20 a.example.net.
+MX example.net.	20	b.example.net.
+
 
 #TXT  +86400 example.net. 'This is some text'
+
+# reverse DNS lookups record
+# PTR 13.12.11.10.in-addr.arpa. a.example.net.
+
+# SRV records - required by SIP and XMPP (Jabber)
+# "_Service._Proto.Name TTL Class SRV Priority Weight Port Target"
+# E.g. "_sip._udp.bigu.edu 43200 IN SRV 10 10 5060 sipserver.bigu.edu."
+# sip:hagen@jauu.net. See RFC3263 for SIP and RFC 2782 for service records
+# in general. Also relevant for sip: NAPTR records for specify the transport
+# protocol (TCP, UDP, ...) for SIP.
+# SRV _http._tcp.a.example.net. 0 0 80 a.example.net. ~
+
+
+# This is me! We are the nameserver of this zone. But beside
+# other DNS server we must specify this explicitly
+# NS example.net. ns1.example.net.
+#
+
+# SOA record
+# SOA x.org. x.org. email@x.org. 1 7200 3600 604800 1800 ~
