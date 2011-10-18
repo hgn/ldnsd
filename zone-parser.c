@@ -26,12 +26,17 @@ static int sanitze_line(char *line)
 	if (line[0] == '#')
 		return -1;
 
+	/* empty line */
+	if (line[0] == '\n')
+		return -1;
+
 	/* remove trailing newline */
 	if (line[strlen(line) - 1] == '\n')
 		line[strlen(line) - 1] = '\0';
 
 	return 0;
 }
+
 
 static char *eat_whitespaces(const char *p)
 {
@@ -44,6 +49,7 @@ static char *eat_whitespaces(const char *p)
                 ptr++;
         }
 }
+
 
 static int time_modifier(char c)
 {
@@ -60,6 +66,7 @@ static int time_modifier(char c)
 
         return -1;
 }
+
 
 static char *parse_ttl(char *str, int *timeval)
 {
@@ -94,6 +101,7 @@ static char *parse_ttl(char *str, int *timeval)
 
         return eat_whitespaces(&str[n]);
 }
+
 
 /* A +86400 a.example.net. 192.168.1.1 */
 static int rr_parse_a(char *conf)
@@ -172,6 +180,48 @@ static int rr_parse_aaaa(char *conf)
         return SUCCESS;
 }
 
+
+/* MX +86400 example.net. 10 a.example.net. */
+static int rr_parse_mx(char *conf)
+{
+        char *ptr = conf;
+        int ret, n, mx_priority;
+        char zone_str[MAX_HOSTNAME_STR + 1];
+	char mx_str[INET6_ADDRSTRLEN + 1];
+        int timeval = DEFAULT_TTL; /* time in seconds */
+
+        if (ptr[0] == '+')
+                ptr = parse_ttl(ptr, &timeval);
+
+        /* parse hostname */
+        ret = sscanf(ptr, "%255[^ \t]%n", zone_str, &n);
+        if (ret != 1)
+                err_msg_die(EXIT_FAILCONF, "malformed zone string: \"%s\"", ptr);
+
+	if (zone_str[n - 1] != '.')
+		err_msg_die(EXIT_FAILCONF, "malformed zone: "
+				"\"%s\" - trailing dot missing", ptr);
+
+        ptr += n; /* point to the first whitespace */
+        ptr = eat_whitespaces(ptr);
+
+        /* parse mx prioryty */
+        ret = sscanf(ptr, "%d", &mx_priority);
+        if (ret != 1)
+                err_msg_die(EXIT_FAILCONF, "malformed prioryty string: \"%s\"", ptr);
+
+        /* parse mx name */
+        ret = sscanf(ptr, "%255[^ \t]%n", mx_str, &n);
+        if (ret != 1)
+                err_msg_die(EXIT_FAILCONF, "malformed mx string: \"%s\"", ptr);
+
+        pr_debug("MX record: ttl: %d zone: %s priority: %d mx server: %s",
+			timeval, zone_str, mx_priority, mx_str);
+
+        return SUCCESS;
+}
+
+
 static int record_type(const char *str, int str_len)
 {
         if (!(strncasecmp(str, "a", str_len)))
@@ -195,6 +245,7 @@ static int record_type(const char *str, int str_len)
 
         return -EINVAL;
 }
+
 
 static int split_and_process(char *line)
 {
@@ -222,6 +273,8 @@ static int split_and_process(char *line)
                 return rr_parse_a(line);
         case DNS_TYPE_AAAA:
                 return rr_parse_aaaa(line);
+        case DNS_TYPE_MX:
+                return rr_parse_mx(line);
         default:
                 err_msg("not supported (yet)");
 		return FAILURE;

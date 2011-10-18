@@ -1,4 +1,14 @@
-# comment
-A +86400 	a.example.net.	 192.168.1.1
-AAAA +86400 a.example.net. 2001:0DB8::1
-TXT  +86400 example.net. 'This is some text'
+# Example Zone File
+A +86401 	a.example.net.	 192.168.1.1
+A b.example.net.	 192.168.1.2
+
+AAAA +86401 a.example.net. 2001:0DB8::1
+
+# mail exchange record
+#   zone
+# 	priority field
+# 	name of the mail exchanger
+MX example.net. 10 a.example.net.
+MX example.net. 20 a.example.net.
+
+#TXT  +86400 example.net. 'This is some text'
