@@ -70,9 +70,29 @@ int type_041_opt_parse(struct ctx *ctx, struct dns_pdu *dr, struct dns_sub_secti
 	 * What should we do if there is a version mismatch.
 	 * I should reread the RFC ... ;-) */
 
-	return sizeof(*o) + ntohs(o->data_len);
+	/* sizeof(*o) + ntohs(o->data_len); */
+	return SUCCESS;
 }
 
+int type_041_opt_construct_option(struct ctx *ctx, struct dns_pdu *dp, struct dns_sub_section *dss, const char *data, int max_len)
+{
+	struct edns0_option *o = (struct edns0_option *)(data);
+
+	if (max_len < TYPE_041_OPT_LEN)
+		return -1;
+
+	o->root             = 0; /* root */
+	o->type             = htons(41); /* FIXME: define */
+	o->udp_payload_size = htons(ctx->buf_max);
+	o->high_bit_e_rcode = 0x0;
+	o->version          = 0x0;
+	o->z                = 0x0;
+	o->data_len         = 0x0;
+
+	return TYPE_041_OPT_LEN;
+}
+
+#if 0
 int type_041_opt_construct_option(struct dns_journey *dnsj,
 		char *packet, int offset, size_t max_len)
 {
@@ -91,7 +111,7 @@ int type_041_opt_construct_option(struct dns_journey *dnsj,
 	o->data_len         = 0x0;
 
 	return TYPE_041_OPT_LEN;
-}
+#endif
 
 int type_041_opt_available(struct dns_pdu *dp)
 {

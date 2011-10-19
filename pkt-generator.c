@@ -156,6 +156,7 @@ int pkt_construct_dns_query(struct ctx *ctx, struct dns_journey *dnsj,
 	APPEND16(type);
 	APPEND16(class);
 
+#if 0
 	/* send a EDNS0 enabled DNS request if
 	 * our configuration does not explicit disable the
 	 * feature - which is nowadays standard. This configuration
@@ -167,6 +168,7 @@ int pkt_construct_dns_query(struct ctx *ctx, struct dns_journey *dnsj,
 		j += type_041_opt_construct_option(dnsj, buf, j, buf_len);
 		dns_packet_set_rr_entries_number(buf, RR_SECTION_ARCOUNT, 1);
 	}
+#endif
 
 
 	return j;

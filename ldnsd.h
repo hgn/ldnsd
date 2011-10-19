@@ -669,7 +669,8 @@ extern int parse_zonefiles(struct ctx *);
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
 extern const char *type_041_opt_text(void);
 extern int type_041_opt_parse(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
-extern int type_041_opt_construct_option(struct dns_journey *, char *, int, size_t);
+extern int type_041_opt_construct_option(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+
 extern int type_041_opt_available(struct dns_pdu *);
 
 /* type-generic.c
@@ -702,8 +703,15 @@ struct type_opts {
 	 * simplest case this is a pointer to free */
 	void (*free)(struct ctx *, struct dns_sub_section *);
 };
+
 extern struct type_opts type_opts[];
-#define	TYPE_INDEX_999 0
+
+/* Don't change the ordering! Append new supported values.
+ * See type-generic.c for more information. */
+enum {
+	TYPE_INDEX_999 = 0,
+	TYPE_INDEX_41,
+}
 
 #define MAX_LABELS 128
 /* Structures used to implement name compression */

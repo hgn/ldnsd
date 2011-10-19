@@ -33,10 +33,12 @@ EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wstrict-prototypes
 EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wdeclaration-after-statement
 
 ifeq ("$(origin DEBUG)", "command line")
-  PERF_DEBUG = $(DEBUG)
+  LDNSD_DEBUG = $(DEBUG)
 endif
-ifndef PERF_DEBUG
+ifndef LDNSD_DEBUG
   CFLAGS_OPTIMIZE = -O6
+else
+	CFLAGS_OPTIMIZE = -O0
 endif
 
 EXTRA_CFLAGS := -D_GNU_SOURCE

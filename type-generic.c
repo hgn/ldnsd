@@ -31,12 +31,23 @@ struct type_opts type_opts[] = {
 		.construct = type_999_generic_construct,
 		.destruct  = type_999_generic_destruct,
 		.free      = type_999_generic_free
+	},
+	{
+		.text      = type_041_opt_text,
+		.parse     = type_041_opt_parse,
+		.construct = type_041_opt_construct_option,
+		.destruct  = type_999_generic_destruct, /* take generic parser */
+		.free      = type_999_generic_free /* take generic one */
 	}
 };
 
 unsigned type_opts_to_index(uint16_t t)
 {
+	fprintf(stderr, "%d\n", t);
 	switch (t) {
+		case 41:
+			return TYPE_INDEX_41;
+			break;
 		default:
 			return TYPE_INDEX_999;
 			break;

@@ -131,8 +131,10 @@ static int construct_answer_section(struct dns_journey *dnsj,
 	if (unlikely(dnsj->p_res_dns_pdu->answers <= 0))
 		return 0;
 
-	if (len > max_len)
+	if (len > max_len) {
+		pr_debug("len (%d) larger the max len (%d)", len, max_len);
 		return -1;
+	}
 
 	pr_debug("answer section len: %d", len);
 
@@ -207,6 +209,7 @@ static int construct_additional_section(struct dns_journey *dnsj,
 				additional_section_no);
 	}
 
+#if 0
 	/* in the case that the resolver send a edns0 option we
 	 * also set this option to signal that we are edns0 aware
 	 * if the local configuration does not disable edns0 of course */
@@ -229,6 +232,7 @@ static int construct_additional_section(struct dns_journey *dnsj,
 				RR_SECTION_ARCOUNT, additional_section_no + 1);
 
 	}
+#endif
 
 	return len;
 }

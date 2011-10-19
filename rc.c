@@ -9,6 +9,7 @@
 extern FILE *yyin;
 int yyparse(void);
 
+
 static int open_rc_file(const struct ctx *ctx)
 {
 	if (ctx->cli_opts.rc_path) {
@@ -33,6 +34,7 @@ static int open_rc_file(const struct ctx *ctx)
 
 	return FAILURE;
 }
+
 
 /* see the comments within parse_rc_file() */
 static struct ctx *xctx;
@@ -73,6 +75,7 @@ int parse_rc_file(struct ctx *ctx)
 	return SUCCESS;
 }
 
+
 #define ON 1
 #define OFF 2
 static int check_on_off(const char *str)
@@ -88,6 +91,7 @@ static int check_on_off(const char *str)
 	else
 		return -1;
 }
+
 
 void rc_set_port(char *port)
 {
@@ -142,11 +146,13 @@ void rc_set_forwarder_port(char *port)
 	xctx->cli_opts.forwarder_port = xstrdup(port);
 }
 
+
 void rc_set_verbose_level(char *level)
 {
 	(void) level;
 	abort();
 }
+
 
 void rc_set_ns_time_select_threshold(char *threshold)
 {
@@ -157,6 +163,7 @@ void rc_set_ns_time_select_threshold(char *threshold)
 
 	xctx->ns_time_select_threshold = imax;
 }
+
 
 void rc_set_ns_time_re_select_threshold(char *threshold)
 {
@@ -187,6 +194,7 @@ void rc_set_edns0_size(char *size)
 
 	xctx->cli_opts.edns0_max = imax;
 }
+
 
 void rc_set_edns0_mode(char *on_off)
 {
