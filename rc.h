@@ -16,5 +16,6 @@ void rc_set_ns_time_select_threshold(char *);
 void rc_set_ns_time_re_select_threshold(char *);
 void rc_set_cache_backend(char *);
 void rc_set_zonefile(char *);
+void rc_set_mode(char *);
 
 #endif /* RC_H */

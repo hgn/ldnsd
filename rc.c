@@ -73,6 +73,21 @@ int parse_rc_file(struct ctx *ctx)
 	return SUCCESS;
 }
 
+#define ON 1
+#define OFF 2
+static int check_on_off(const char *str)
+{
+	if (!strcasecmp(str, "on"))
+		 return ON;
+	else if (!strcasecmp(str, "enable"))
+		return ON;
+	else if (!strcasecmp(str, "off"))
+		return OFF;
+	else if (!strcasecmp(str, "disable"))
+		return OFF;
+	else
+		return -1;
+}
 
 void rc_set_port(char *port)
 {
@@ -194,6 +209,7 @@ void rc_set_edns0_mode(char *on_off)
 }
 
 
+
 void rc_set_cache_backend(char *backend)
 {
 	if (!strcasecmp(backend, "none")) {
@@ -223,4 +239,21 @@ void rc_set_zonefile(char *zonefile)
 	}
 
 	pr_debug("add file \"%s\" to zone file list", zonefile);
+}
+
+
+void rc_set_mode(char *mode)
+{
+	switch (check_on_off(mode)) {
+	case ON:
+		xctx->mode = MODE_RECURSIVE;
+		break;
+	case OFF:
+		xctx->mode = MODE_ITERATIVE;
+		break;
+	default:
+		err_msg_die(EXIT_FAILCONF, "recursive must set to on or off"
+				", not \"%s\"", mode);
+		break;
+	}
 }

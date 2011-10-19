@@ -56,7 +56,8 @@ static struct ev* ev_init_hdntl(void)
 	struct ev *ev;
 	ev = ev_new();
 	if (!ev) {
-		err_msg_die(EXIT_FAILMISC, "Cannot initialize event abstration");
+		err_msg_die(EXIT_FAILMISC,
+			"Cannot initialize event abstration");
 	}
 
 	return ev;
@@ -99,6 +100,8 @@ static struct ctx *ctx_init(void)
 	ret = init_zone_filename_list(ctx);
 	if (ret != SUCCESS)
 		return NULL;
+
+	ctx->mode = DEFAULT_MODE;
 
 	ctx->cache_backend = CACHE_BACKEND_MEMORY;
 
@@ -168,7 +171,7 @@ int main(int ac, char **av)
 		err_msg_die(EXIT_FAILMISC, "Failed to parse zone files");
 
 
-
+	/* main loop, normaly never exited */
 	ev_loop(ctx->ev_hndl, flags);
 
 	fini_server_socket(ctx->client_server_socket);

@@ -25,11 +25,13 @@ void average_init(struct average *a)
 	memset(a, 0, sizeof(*a));
 }
 
+
 #define	DEPTH_NS 8
 int32_t exponential_average(int32_t prev_avg, int32_t val, uint8_t depth)
 {
 	return ((depth - 1) * prev_avg +  val)/depth;
 }
+
 
 void average_add(struct average *avg, int32_t val)
 {
@@ -42,6 +44,7 @@ void average_add(struct average *avg, int32_t val)
 	}
 }
 
+
 int32_t average_value(struct average *avg)
 {
 	if (!unlikely(avg->init)) {
@@ -52,6 +55,7 @@ int32_t average_value(struct average *avg)
 
 	return avg->sum / AVG_ENTRIES;
 }
+
 
 int subtime(struct timeval *op1, struct timeval *op2,
 		struct timeval *result)
@@ -142,7 +146,7 @@ void x_err_sys(const char *file, int line_no, const char *fmt, ...)
 }
 
 
-void * xmalloc(size_t size)
+void *xmalloc(size_t size)
 {
 	void *ptr = malloc(size);
 	if (!ptr)
@@ -265,6 +269,7 @@ char *xstrdup(const char *s)
 	return ptr;
 }
 
+
 void hex_print(char *ptr, size_t len)
 {
 	size_t i;
@@ -279,6 +284,7 @@ void hex_print(char *ptr, size_t len)
 	fputs("\n", stderr);
 }
 
+
 /* return bool */
 int ip_valid_addr(int family, const char *str)
 {
@@ -291,3 +297,5 @@ int ip_valid_addr(int family, const char *str)
 
 	return 1;
 }
+
+

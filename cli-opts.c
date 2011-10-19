@@ -45,6 +45,7 @@ static void set_default_options(struct cli_opts *opts)
 	opts->edns0_max      = EDNS0_DEFAULT;
 }
 
+
 void free_cli_opts(struct cli_opts *opts)
 {
 	if (opts->rc_path)
@@ -61,7 +62,9 @@ void free_cli_opts(struct cli_opts *opts)
 	free(opts->me);
 }
 
-int parse_cli_options(struct ctx *ctx, struct cli_opts *opts, int ac, char **av)
+
+int parse_cli_options(struct ctx *ctx, struct cli_opts *opts,
+		int ac, char **av)
 {
 	int ret = SUCCESS, c;
 
@@ -108,5 +111,3 @@ int parse_cli_options(struct ctx *ctx, struct cli_opts *opts, int ac, char **av)
 }
 
 
-
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

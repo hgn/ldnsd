@@ -277,7 +277,17 @@ enum ns_select_strategy {
 	UNSUPPORTED,
 };
 
+enum {
+	MODE_RECURSIVE,
+	MODE_ITERATIVE
+};
+
+#define DEFAULT_MODE MODE_ITERATIVE
+
 struct ctx {
+
+	int mode;
+
 	struct ev *ev_hndl;
 
 	/* successful request responses */
