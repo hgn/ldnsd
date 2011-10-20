@@ -132,12 +132,16 @@ off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
  * forwarder */
 int pkt_construct_dns_query(struct ctx *ctx, struct dns_journey *dnsj,
 		char *name, int name_len, uint16_t trans_id, uint16_t type,
-		uint16_t class, char *buf, size_t buf_len) {
+		uint16_t class, char *buf, size_t buf_len)
+{
 	off_t j = 0;  /* current offset into buf */
 	uint16_t _t;	 /* used by the macros */
 
+	(void) ctx;
+	(void) dnsj;
+
 	APPEND16(trans_id);
-	APPEND16(0x0100);  /* standard query, recusion needed */
+	APPEND16(0x0100);  /* standard query, recursion needed */
 	APPEND16(1);  /* one question */
 	APPEND16(0);  /* no answers */
 	APPEND16(0);  /* no authority */

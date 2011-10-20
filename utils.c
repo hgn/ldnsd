@@ -88,6 +88,39 @@ double tv_to_sec(struct timeval *tv)
 }
 
 
+int ipv6_prefix_equal(struct in6_addr *a1, struct in6_addr *a2, unsigned int prefixlen)
+{
+	unsigned pdw, pbi;
+
+	pdw = prefixlen >> 5;
+	if (pdw && memcmp(a1->s6_addr32, a2->s6_addr32, pdw << 2))
+		return 0;
+
+	pbi = prefixlen & 0x1f;
+	if (pbi && ((a1->s6_addr32[pdw] ^ a2->s6_addr32[pdw]) &
+				htonl((0xffffffff) << (32 - pbi))))
+		return 0;
+
+	return 1;
+}
+
+
+int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
+{
+	return memcmp(a1, a2, sizeof(struct in6_addr));
+}
+
+
+int ipv4_prefix_equal(struct in_addr *a1, struct in_addr *a2, int prefix)
+{
+	uint32_t mask = 0;
+
+	mask = htonl(~((1 << (32 - prefix)) - 1));
+
+	return (a1->s_addr & mask) == (a2->s_addr & mask);
+}
+
+
 void msg(const char *format, ...)
 {
 	va_list ap;

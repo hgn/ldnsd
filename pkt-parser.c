@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2010 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2010,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@
 
 #define	IS_DNS_QUESTION(x) (x & DNS_FLAG_MASK_QUESTION)
 #define	IS_DNS_STANDARD_QUERY(x) (x & DNS_FLAG_STANDARD_QUERY)
-
 
 /* see http://en.wikipedia.org/wiki/List_of_DNS_record_types */
 #define	TYPE_A   1
@@ -1039,6 +1038,3 @@ err_additional:
 	return SUCCESS;
 }
 
-
-
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

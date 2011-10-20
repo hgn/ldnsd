@@ -45,8 +45,8 @@ const char *type_041_opt_text(void)
 
 /* data points to the start of type of the type field.
  * The already parsed name is already saved in dnssq->name */
-int type_041_opt_parse(struct ctx *ctx, struct dns_pdu *dr, struct dns_sub_section *dnss,
-		const char *data, int max_len)
+int type_041_opt_parse(struct ctx *ctx, struct dns_pdu *dr,
+		struct dns_sub_section *dnss, const char *data, int max_len)
 {
 	struct edns0_option_r *o = (struct edns0_option_r *)data;
 
@@ -74,7 +74,8 @@ int type_041_opt_parse(struct ctx *ctx, struct dns_pdu *dr, struct dns_sub_secti
 	return SUCCESS;
 }
 
-int type_041_opt_construct_option(struct ctx *ctx, struct dns_pdu *dp, struct dns_sub_section *dss, const char *data, int max_len)
+int type_041_opt_construct_option(struct ctx *ctx, struct dns_pdu *dp,
+		struct dns_sub_section *dss, const char *data, int max_len)
 {
 	struct edns0_option *o = (struct edns0_option *)(data);
 

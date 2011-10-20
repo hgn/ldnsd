@@ -591,6 +591,9 @@ extern void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct a
 extern char *xstrdup(const char *);
 extern void hex_print(char *, size_t);
 extern int ip_valid_addr(int, const char *);
+extern int ipv6_prefix_equal(struct in6_addr *, struct in6_addr *, unsigned int);
+extern int ipv6_addr_cmp(const struct in6_addr *, const struct in6_addr *);
+extern int ipv4_prefix_equal(struct in_addr *, struct in_addr *, int);
 
 /* nameserver.c */
 extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
@@ -711,7 +714,7 @@ extern struct type_opts type_opts[];
 enum {
 	TYPE_INDEX_999 = 0,
 	TYPE_INDEX_41,
-}
+};
 
 #define MAX_LABELS 128
 /* Structures used to implement name compression */
