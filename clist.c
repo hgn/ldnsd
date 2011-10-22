@@ -68,7 +68,6 @@ int list_insert(struct list *list, void *data)
 
 	ret = list_internal_lookup(list, &temp);
 	if (ret != FAILURE) {
-		fprintf(stderr, "insert failed - element exists already\n");
 		return FAILURE;
 	}
 
@@ -84,7 +83,6 @@ int list_insert_tail(struct list *list, void *data)
 
 	ret = list_internal_lookup(list, &temp);
 	if (ret != FAILURE) {
-		fprintf(stderr, "insert failed - element exists already\n");
 		return FAILURE;
 	}
 
