@@ -36,6 +36,7 @@ int yylex(void);
 %token <word>  CACHEBACKEND
 %token <word>  ZONEFILE
 %token <word>  RECURSION
+%token <word>  ALLOWQUERY
 
 /* rules */
 %%
@@ -59,10 +60,14 @@ command:     PORT WORD    { rc_set_port($2); }
 		|        RECURSION WORD  { rc_set_mode($2); }
 		|        ZONEFILE WORD  { rc_set_zonefile($2); }
 		|        FORWARDERS BRACEON forwarderlist BRACEOFF
+		|        ALLOWQUERY BRACEON allowlist BRACEOFF
     ;
 
 forwarderlist:
 		 | forwarderlist WORD { rc_set_forwarder_addr($2); }
+
+allowlist:
+		 | allowlist WORD { rc_set_allow_query($2); }
 
 
 

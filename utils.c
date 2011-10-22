@@ -17,8 +17,6 @@
 */
 
 #include "ldnsd.h"
-#include <arpa/inet.h>
-
 
 void average_init(struct average *a)
 {
@@ -88,6 +86,7 @@ double tv_to_sec(struct timeval *tv)
 }
 
 
+/* 1 if qual, 0 otherwise */
 int ipv6_prefix_equal(struct in6_addr *a1, struct in6_addr *a2, unsigned int prefixlen)
 {
 	unsigned pdw, pbi;
@@ -111,13 +110,49 @@ int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
 }
 
 
+/* 1 if qual, 0 otherwise */
 int ipv4_prefix_equal(struct in_addr *a1, struct in_addr *a2, int prefix)
 {
-	uint32_t mask = 0;
+	uint32_t mask = 0, aa1, aa2;
+
+	aa1 = ntohl(a1->s_addr); aa2 = ntohl(a2->s_addr);
 
 	mask = htonl(~((1 << (32 - prefix)) - 1));
 
-	return (a1->s_addr & mask) == (a2->s_addr & mask);
+	return !!((aa1 & mask) == (aa2 & mask));
+}
+
+
+/* return true if both ss are equal or false otherwise */
+int ip_prefix_storage_match(const void *a1, const void *a2)
+{
+	const struct ip_prefix_storage *ss1 = a1, *ss2 = a2;
+
+	return !memcmp(ss1, ss2, sizeof(*ss1));
+}
+
+
+/* return AF_INET, AF_INET6 or -1 */
+int ip_family(const char *ip_str)
+{
+	int ret;
+	unsigned char buf[sizeof(struct in6_addr)];
+
+	ret = inet_pton(AF_INET6, ip_str, buf);
+	if (ret == 1)
+		return AF_INET6;
+
+	ret = inet_pton(AF_INET, ip_str, buf);
+	if (ret == 1)
+		return AF_INET;
+
+	return -1;
+}
+
+
+int prefix_len_check(int family, unsigned int len)
+{
+	return family == AF_INET ? (len <= 32) : (len <= 128);
 }
 
 

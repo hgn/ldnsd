@@ -32,6 +32,7 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 #include <assert.h>
+#include <arpa/inet.h>
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -330,6 +331,11 @@ struct ctx {
 
 	struct list *zone_filename_list;
 
+	/* the list is initialized if the first ip
+	 * is added to the list, NULL means therefore
+	 * all queries are allowed */
+	struct list *allowed_resolver_list;
+
 	/* a buffer with a allocated memory area at program
 	 * start and freed at program end. The purpose is
 	 * to provide a place where the outgoing packet is
@@ -568,6 +574,15 @@ enum rr_section {
 	RR_SECTION_ARCOUNT,
 };
 
+/* used for allow/filter list */
+struct ip_prefix_storage {
+	int af_family;
+	union {
+		struct in_addr v4_addr;
+		struct in6_addr v6_addr;
+	};
+	unsigned long prefix_len;
+};
 
 /* utils.c */
 extern void average_init(struct average *);
@@ -594,6 +609,9 @@ extern int ip_valid_addr(int, const char *);
 extern int ipv6_prefix_equal(struct in6_addr *, struct in6_addr *, unsigned int);
 extern int ipv6_addr_cmp(const struct in6_addr *, const struct in6_addr *);
 extern int ipv4_prefix_equal(struct in_addr *, struct in_addr *, int);
+extern int ip_prefix_storage_match(const void *, const void *);
+extern int ip_family(const char *);
+extern int prefix_len_check(int, unsigned int);
 
 /* nameserver.c */
 extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));

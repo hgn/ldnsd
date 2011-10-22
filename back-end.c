@@ -480,6 +480,69 @@ static void process_p_dns_query(struct ctx *ctx, const char *packet, const size_
 }
 
 
+static int is_allowed_ipv4_query(struct ctx *ctx, struct in_addr *addr)
+{
+	int ret;
+	struct list_element *ele;
+	struct list *arl = ctx->allowed_resolver_list;
+
+	for (ele = list_head(arl); ele != NULL; ele = list_next(ele)) {
+		struct ip_prefix_storage *ipps = list_data(ele);
+
+		if (ipps->af_family != AF_INET)
+			continue;
+
+		ret = ipv4_prefix_equal(addr, &ipps->v4_addr, ipps->prefix_len);
+		if (ret)
+			return 1;
+	}
+
+	return 0;
+}
+
+
+static int is_allowed_ipv6_query(struct ctx *ctx, struct in6_addr *addr)
+{
+	int ret;
+	struct list_element *ele;
+	struct list *arl = ctx->allowed_resolver_list;
+
+	for (ele = list_head(arl); ele != NULL; ele = list_next(ele)) {
+		struct ip_prefix_storage *ipps = list_data(ele);
+
+		if (ipps->af_family != AF_INET6)
+			continue;
+
+		ret = ipv6_prefix_equal(addr, &ipps->v6_addr, ipps->prefix_len);
+		if (ret)
+			return 1;
+	}
+
+	return 0;
+}
+
+
+static int is_allowed_query(struct ctx *ctx, struct sockaddr_storage *ss)
+{
+	/* check if filtering is active, if not then the policy is
+	 * to allow queries from all ip's */
+	if (!ctx->allowed_resolver_list)
+		return 1;
+
+	switch (((struct sockaddr *)ss)->sa_family) {
+	case AF_INET:
+		return is_allowed_ipv4_query(ctx, &((struct sockaddr_in *)ss)->sin_addr);
+		break;
+	case AF_INET6:
+		return is_allowed_ipv6_query(ctx, &((struct sockaddr_in6 *)ss)->sin6_addr);
+		break;
+	default:
+		err_msg_die(EXIT_FAILINT, "socket family not known");
+		break;
+	}
+}
+
+
 /* if a incoming client request is coming then this
  * function is called */
 static void incoming_request(int fd, int what, void *data)
@@ -502,9 +565,17 @@ static void incoming_request(int fd, int what, void *data)
 		if (rc < 0) {
 			if (errno == EAGAIN)
 				return;
+
 			err_sys_die(EXIT_FAILMISC, "Failure in read routine for incoming packet");
 		}
+
 		pr_debug("incoming packet on back-end port %s", ctx->cli_opts.port);
+
+		if (!is_allowed_query(ctx, &ss)) {
+			pr_debug("query ignored because of active IP filter");
+			continue;
+		}
+
 		process_p_dns_query(ctx, packet, rc, &ss, ss_len);
 	}
 }

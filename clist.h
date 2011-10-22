@@ -8,6 +8,7 @@
 #define list_is_tail(element) ((element)->next == NULL ? 1 : 0)
 #define list_data(element) ((element)->data)
 #define list_next(element) ((element)->next)
+#define	list_len list_size /* alias */
 
 struct list_element {
     void *data;
