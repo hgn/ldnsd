@@ -80,12 +80,14 @@ void fini_server_socket(int fd)
 	close(fd);
 }
 
+
 static void fire_error(struct dns_journey *dnsj)
 {
 	(void) dnsj;
 	/* FIXME: inform sender that a error occured */
 	abort();
 }
+
 
 static int construct_header_question_section(struct dns_journey *dnsj,
 		char *packet, int offset, int max_len)
@@ -236,6 +238,7 @@ static int construct_additional_section(struct dns_journey *dnsj,
 
 	return len;
 }
+
 
 /* We determine the maximum len of the outgoing
  * packet. The limit depends on several factors.
@@ -404,6 +407,7 @@ static int enqueue_request(struct ctx *ctx, struct dns_journey *dns_journey)
 
 	return SUCCESS;
 }
+
 
 static void process_p_dns_query(struct ctx *ctx, const char *packet, const size_t len,
 		const struct sockaddr_storage *ss, socklen_t ss_len)

@@ -39,7 +39,7 @@ static int initiate_seed(void)
 	if (ret != sizeof(uint32_t)) {
 		srandom(time(NULL) & getpid());
 		close(rand_fd);
-		return FAILURE;
+		return -1;
 	}
 
 	/* set global seed */
@@ -47,7 +47,7 @@ static int initiate_seed(void)
 
 	close(rand_fd);
 
-	return SUCCESS;
+	return 0;
 }
 
 
@@ -55,10 +55,8 @@ static struct ev* ev_init_hdntl(void)
 {
 	struct ev *ev;
 	ev = ev_new();
-	if (!ev) {
-		err_msg_die(EXIT_FAILMISC,
-			"Cannot initialize event abstration");
-	}
+	if (!ev)
+		err_msg_die(EXIT_FAILMISC, "Cannot initialize event abstration");
 
 	return ev;
 }
