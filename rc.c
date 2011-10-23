@@ -328,3 +328,62 @@ void rc_set_allow_query(char *conf)
 }
 
 
+void rc_set_allow_update(char *conf)
+{
+	int ret, family, n;
+	unsigned int prefix_len;
+	char *ptr;
+	char ip_str[INET6_ADDRSTRLEN + 1];
+	struct ip_prefix_storage *ipps;
+
+	ptr = conf;
+
+	if (!xctx->allow_update_list) {
+		xctx->allow_update_list = list_create(ip_prefix_storage_match, free);
+		if (!xctx->allow_update_list)
+			err_sys_die(EXIT_FAILMEM, "Failed to initialize allow update list");
+	}
+
+	/* split string: IPv{4,6}/prefix */
+        ret = sscanf(ptr, "%16[^/]%n", ip_str, &n);
+        if (ret != 1)
+                err_msg_die(EXIT_FAILCONF, "malformed ip string: \"%s\"", ptr);
+
+	family = ip_family(ip_str);
+	if (family < 0)
+		err_sys_die(EXIT_FAILCONF, "Not a valid ip addr");
+
+	ptr += n;
+	ptr++; /* eat slash */
+
+	prefix_len = xatoi(ptr);
+	if (!prefix_len_check(family, prefix_len)) {
+		err_msg_die(EXIT_FAILCONF, "prefix length out of range: \"%d\" for allow-update", prefix_len);
+	}
+
+	/* ok fine, sanity checks passed - allocate struct and
+	 * add into allowed query list */
+
+	ipps = xmalloc(sizeof(*ipps));
+	ipps->af_family = family;
+	ipps->prefix_len = prefix_len;
+
+	switch(ipps->af_family) {
+		case AF_INET:
+			/* Cannot failed, ip_family() guarantees this */
+			inet_pton(AF_INET, ip_str, &ipps->v4_addr);
+			break;
+		case AF_INET6:
+			inet_pton(AF_INET6, ip_str, &ipps->v6_addr);
+			break;
+		default:
+			err_msg_die(EXIT_FAILINT, "programmed error - unknown value");
+	}
+
+	ret = list_insert(xctx->allow_update_list, ipps);
+	if (ret != SUCCESS) {
+		err_msg("IP address/prefixlength duplicate for allowed query, skipping entry");
+		free(ipps);
+	}
+
+}

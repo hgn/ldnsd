@@ -32,6 +32,7 @@ cache-backend                    { return CACHEBACKEND; }
 zonefile                         { return ZONEFILE; }
 recursion                        { return RECURSION; }
 allow-query                      { return ALLOWQUERY; }
+allow-update                     { return ALLOWUPDATE; }
 \{                               { return BRACEON; }
 \}                               { return BRACEOFF; }
 [a-zA-Z0-9./:][a-zA-Z0-9_./:]*   { yylval.word = strdup(yytext); return WORD; }

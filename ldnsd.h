@@ -336,6 +336,9 @@ struct ctx {
 	 * all queries are allowed */
 	struct list *allowed_resolver_list;
 
+	/* similar, but for DNS updates from resolver */
+	struct list *allow_update_list;
+
 	/* a buffer with a allocated memory area at program
 	 * start and freed at program end. The purpose is
 	 * to provide a place where the outgoing packet is

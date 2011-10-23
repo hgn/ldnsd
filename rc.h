@@ -18,5 +18,6 @@ void rc_set_cache_backend(char *);
 void rc_set_zonefile(char *);
 void rc_set_mode(char *);
 void rc_set_allow_query(char *);
+void rc_set_allow_update(char *);
 
 #endif /* RC_H */
