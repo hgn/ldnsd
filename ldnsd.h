@@ -166,18 +166,61 @@ typedef uint64_t be64;
 
 #define	MAXERRMSG 1024
 
-#define DNS_TYPE_A       1
-#define DNS_TYPE_NS      2
-#define DNS_TYPE_CNAME   5
-#define DNS_TYPE_SOA     6
-#define DNS_TYPE_PTR    12
-#define DNS_TYPE_MX     15
-#define DNS_TYPE_TXT    16
-#define DNS_TYPE_AAAA   28
+#define	DNS_TYPE_A              1
+#define	DNS_TYPE_NS             2
+#define	DNS_TYPE_MD             3
+#define	DNS_TYPE_MF             4
+#define	DNS_TYPE_CNAME          5
+#define	DNS_TYPE_SOA            6
+#define	DNS_TYPE_MB             7
+#define	DNS_TYPE_MG             8
+#define	DNS_TYPE_MR             9
+#define	DNS_TYPE_NULL          10
+#define	DNS_TYPE_WKS           11
+#define	DNS_TYPE_PTR           12
+#define	DNS_TYPE_HINFO         13
+#define	DNS_TYPE_MINFO         14
+#define	DNS_TYPE_MX            15
+#define	DNS_TYPE_TXT           16
+#define	DNS_TYPE_AAAA          28
+#define	DNS_TYPE_AFSDB         18
+#define	DNS_TYPE_CERT          37
+#define	DNS_TYPE_DHCID         49
+#define	DNS_TYPE_DLV        32769
+#define	DNS_TYPE_DNAME         39
+#define	DNS_TYPE_OPT           41
+#define	DNS_TYPE_DNSKEY        48
+#define	DNS_TYPE_DS            43
+#define	DNS_TYPE_HIP           55
+#define	DNS_TYPE_IPSECKEY      45
+#define	DNS_TYPE_KEY           25
+#define	DNS_TYPE_LOC           29
+#define	DNS_TYPE_NAPTR         35
+#define	DNS_TYPE_NSEC          47
+#define	DNS_TYPE_NSEC3         50
+#define	DNS_TYPE_NSEC3PARAM    51
+#define	DNS_TYPE_RRSIG	       46
+#define	DNS_TYPE_SIG	       24
+#define	DNS_TYPE_SPF           99
+#define	DNS_TYPE_SRV           33
+#define	DNS_TYPE_SSHFP         44
+#define	DNS_TYPE_TKEY         249
+#define	DNS_TYPE_TSIG         250
+#define	DNS_TYPE_TA         32768
+
+/* not supported */
+#if 0
+#define	TYPE_AXFR	252
+#define	TYPE_IXFR	251
+#define	TYPE_OPT	41
+#endif
+
 
 #define	DNS_TYPE_INVALID -1
 
 #define DNS_CLASS_INET   1
+
+#define MAX_HOSTNAME_STR 255 /* including final dot */
 
 
 /* see http://www.ces.clemson.edu/linux/ipw2200_averages.shtml
@@ -285,6 +328,11 @@ enum {
 
 #define DEFAULT_MODE MODE_ITERATIVE
 
+struct statistics {
+	unsigned long lookup_in_cache;
+	unsigned long lookup_not_in_cache;
+};
+
 struct ctx {
 
 	int mode;
@@ -327,7 +375,8 @@ struct ctx {
 	int client_server_socket;
 
 	int cache_backend;
-	struct cache *cache;
+	/* cache backend private data (e.g. struct mm_cachhe_private */
+	void *cache;
 
 	struct list *zone_filename_list;
 
@@ -347,6 +396,8 @@ struct ctx {
 	 * EDNS0_MAX_DEFAULT) */
 	char *buf;
 	uint16_t buf_max;
+
+	struct statistics statistics;
 };
 
 
@@ -386,8 +437,8 @@ struct dns_sub_section {
 	 * again be consulted. Zero values are interpreted to mean
 	 * that the RR can only be used for the transaction in progress */
 	int32_t ttl;
-	uint16_t rdlength;
 
+	uint16_t rdlength;
 	/* priv_data is the data followed directly
 	 * after rdlength (if rdlength != 0). But it
 	 * can be also other context sensitive data
@@ -418,23 +469,23 @@ struct dns_pdu {
 	uint16_t authority;
 	uint16_t additional;
 
+	size_t questions_section_len;
 	struct dns_sub_section **questions_section;
 	/* a pointer in the packet to the start of
 	 * the question section plus the length */
 	const char *questions_section_ptr;
-	size_t questions_section_len;
 
-	struct dns_sub_section **answers_section;
-	const char *answers_section_ptr;
 	size_t answers_section_len;
+	struct dns_sub_section **answers_section;
+	char *answers_section_ptr;
 
+	size_t authority_section_len;
 	struct dns_sub_section **authority_section;
 	const char *authority_section_ptr;
-	size_t authority_section_len;
 
+	size_t additional_section_len;
 	struct dns_sub_section **additional_section;
 	const char *additional_section_ptr;
-	size_t additional_section_len;
 
 	uint16_t edns0_max_payload;
 #define	EDNS0_DISABLED 0
@@ -567,6 +618,23 @@ struct dns_journey {
 };
 
 
+/* main data structure, holding a record. Must be
+ * implemented by all caching strategies */
+struct cache_data {
+	 uint16_t type;
+	 uint16_t class;
+	 uint32_t ttl;
+	 char *key;
+	 size_t key_len;
+
+	 union {
+		void *priv_data;
+		struct in_addr v4addr;
+		struct in6_addr v6addr;
+	 };
+};
+
+
 #define	MAX_PACKET_LEN 2048
 
 
@@ -615,6 +683,9 @@ extern int ipv4_prefix_equal(struct in_addr *, struct in_addr *, int);
 extern int ip_prefix_storage_match(const void *, const void *);
 extern int ip_family(const char *);
 extern int prefix_len_check(int, unsigned int);
+extern char *eat_whitespaces(const char *);
+extern int time_modifier(char);
+extern char *parse_ttl(char *, int *);
 
 /* nameserver.c */
 extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
@@ -650,6 +721,7 @@ extern struct dns_pdu *alloc_dns_pdu(void);
 extern int get8(const char *, size_t, size_t, uint8_t *);
 extern int get16(const char *, size_t, size_t, uint16_t *);
 extern int getint32_t(const char *, size_t, size_t, int32_t *);
+extern int create_answer_pdu_from_cd(struct ctx *, struct dns_journey *, struct cache_data *);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
@@ -679,22 +751,38 @@ extern int packet_flags_get_rcode(char *);
 extern int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
 extern void free_cli_opts(struct cli_opts *);
 
+
 /* cache.c */
 extern int cache_init(struct ctx *);
 extern int cache_free(struct ctx *);
-extern int cache_add(struct ctx *, struct dns_pdu *, struct dns_pdu *);
+extern int cache_add(struct ctx *, struct cache_data *);
 extern int cache_remove(struct ctx *, struct dns_pdu *);
-extern int cache_get(struct ctx *, struct dns_pdu *, struct dns_pdu *);
+extern int cache_get(struct ctx *, uint16_t, uint16_t, char *, size_t, struct cache_data **);
 
 /* zone-parser.c */
 extern int parse_zonefiles(struct ctx *);
+
+/* type-001-a.c */
+extern const char *type_001_a_text(void);
+extern struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
+extern void type_001_a_free_cache_data(struct ctx *, struct cache_data *);
+
+/* type-015-mx.c */
+extern const char *type_015_mx_text(void);
+extern struct cache_data *type_015_mx_zone_parser_to_cache_data(struct ctx *, char *);
+extern void type_015_mx_free_cache_data(struct ctx *, struct cache_data *);
+extern int type_015_mx_cache_cmp(const struct cache_data *, const struct cache_data *);
+
+/* type-028-aaaa.c */
+extern const char *type_028_aaaa_text(void);
+extern struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *, char *);
+extern void type_028_aaaa_free_cache_data(struct ctx *, struct cache_data *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
 extern const char *type_041_opt_text(void);
 extern int type_041_opt_parse(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
 extern int type_041_opt_construct_option(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
-
 extern int type_041_opt_available(struct dns_pdu *);
 
 /* type-generic.c
@@ -707,34 +795,57 @@ extern int type_999_generic_construct(struct ctx *, struct dns_pdu *, struct dns
 extern void type_999_generic_free(struct ctx *, struct dns_sub_section *);
 extern int type_999_generic_available(struct dns_pdu *);
 extern unsigned type_opts_to_index(uint16_t);
+extern int str_record_type(const char *, int);
+extern struct cache_data *type_999_generic_zone_parser_to_cache_data(struct ctx *, char *);
+extern void type_999_generic_free_cache_data(struct ctx *, struct cache_data *);
+extern int type_999_generic_cache_cmp(const struct cache_data *, const struct cache_data *);
+
+
 
 /* operation for RR types. The new type
  * must also be actived at type_opts_valid()
  * in type-multiplexer.c */
-struct type_opts {
+struct type_fn_table {
+
 	/* returns a description of this type */
 	const char *(*text)(void);
+
 	int (*parse)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+
 	/* construct generates a blob based on the struct dns_sub_section
-	 * priv_data section.
-	 * Construct return the size of the constructed data blob or -1
-	 * for a error */
+	 * priv_data section.  Construct return the size of the constructed
+	 * data blob or -1 for a error */
 	int (*construct)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+
 	/* destruct parses the packet rr and save relevant information
 	 * in priv_data. For A records this are 4 byte in priv_data */
 	int (*destruct)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int, int);
+
 	/* free frees the priv_data pointer, in the
 	 * simplest case this is a pointer to free */
 	void (*free)(struct ctx *, struct dns_sub_section *);
+
+	/* parse the zone file entry and returns a blob, suitable to
+	 * transmission */
+	struct cache_data *(*zone_parser_to_cache_data)(struct ctx *, char *);
+	void (*free_cache_data)(struct ctx *, struct cache_data *);
+
+	/* compare function for cache data. Every RR type in the zone file
+	 * MUST overwrite their own compare function. Please see
+	 * type_999_generic_cache_cmp() and type_015_mx_cache_cmp() */
+	int (*cache_cmp)(const struct cache_data *, const struct cache_data *);
 };
 
-extern struct type_opts type_opts[];
+extern struct type_fn_table type_fn_table[];
 
 /* Don't change the ordering! Append new supported values.
  * See type-generic.c for more information. */
 enum {
-	TYPE_INDEX_999 = 0,
-	TYPE_INDEX_41,
+	TYPE_INDEX_TYPE_A,
+	TYPE_INDEX_TYPE_MX,
+	TYPE_INDEX_TYPE_AAAA,
+	TYPE_INDEX_TYPE_OPT,
+	TYPE_INDEX_TYPE_GENERIC /* last in list */
 };
 
 #define MAX_LABELS 128
@@ -751,5 +862,6 @@ struct dnslabel_table {
 extern int pkt_construct_dns_query(struct ctx *, struct dns_journey *, char *,
 		int, uint16_t, uint16_t , uint16_t, char *, size_t);
 extern off_t dnsname_to_labels(char *, size_t, off_t, const char *, const int, struct dnslabel_table *);
+
 
 #endif /* LDNSD_H */

@@ -367,3 +367,67 @@ int ip_valid_addr(int family, const char *str)
 }
 
 
+char *eat_whitespaces(const char *p)
+{
+        char *ptr = (char *)p;
+
+        while (1) {
+                /* isspace also test for \n, which is not allowed */
+                if (*ptr != ' ' && *ptr != '\t')
+                        return ptr;
+                ptr++;
+        }
+}
+
+
+int time_modifier(char c)
+{
+        if (c == 's')
+                return 1;
+        if (c == 'm')
+                return 60;
+        if (c == 'h')
+                return 60 * 60;
+        if (c == 'd')
+                return 60 * 60 * 24;
+        if (c == 'w')
+                return 60 * 60 * 24 * 7;
+
+        return -1;
+}
+
+
+char *parse_ttl(char *str, int *timeval)
+{
+        int ret, n, timemod = INT_MAX;
+        char field[16];
+
+        str++;
+
+        /* parse identifier */
+        ret = sscanf(str, "%15[^ \t]%n", field, &n);
+        if (ret != 1)
+                err_msg_die(EXIT_FAILCONF, "malformed time string %s", str);
+
+        if (n > 1)
+                timemod = time_modifier(field[n - 1]);
+
+        if (timemod < 0 || timemod == INT_MAX) {
+                timemod = 1;
+        }
+
+        *timeval = atoi(field) * timemod;
+
+	if (*timeval > TTL_MAX) {
+		err_msg("ttl of record to high (%d) set to %d", *timeval, DEFAULT_TTL);
+		*timeval = DEFAULT_TTL;
+	}
+
+	if (*timeval < TTL_MIN) {
+		err_msg("ttl of record to low (%d) set to %d", *timeval, DEFAULT_TTL);
+		*timeval = DEFAULT_TTL;
+	}
+
+        return eat_whitespaces(&str[n]);
+}
+

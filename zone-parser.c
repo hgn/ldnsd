@@ -17,8 +17,7 @@
 */
 
 #include "ldnsd.h"
-
-#define MAX_HOSTNAME_STR 255 /* including final dot */
+#include "cache.h"
 
 static int sanitze_line(char *line)
 {
@@ -38,112 +37,11 @@ static int sanitze_line(char *line)
 }
 
 
-static char *eat_whitespaces(const char *p)
-{
-        char *ptr = (char *)p;
 
-        while (1) {
-                /* isspace also test for \n, which is not allowed */
-                if (*ptr != ' ' && *ptr != '\t')
-                        return ptr;
-                ptr++;
-        }
-}
-
-
-static int time_modifier(char c)
-{
-        if (c == 's')
-                return 1;
-        if (c == 'm')
-                return 60;
-        if (c == 'h')
-                return 60 * 60;
-        if (c == 'd')
-                return 60 * 60 * 24;
-        if (c == 'w')
-                return 60 * 60 * 24 * 7;
-
-        return -1;
-}
-
-
-static char *parse_ttl(char *str, int *timeval)
-{
-        int ret, n, timemod = INT_MAX;
-        char field[16];
-
-        str++;
-
-        /* parse identifier */
-        ret = sscanf(str, "%15[^ \t]%n", field, &n);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed time string %s", str);
-
-        if (n > 1)
-                timemod = time_modifier(field[n - 1]);
-
-        if (timemod < 0 || timemod == INT_MAX) {
-                timemod = 1;
-        }
-
-        *timeval = atoi(field) * timemod;
-
-	if (*timeval > TTL_MAX) {
-		err_msg("ttl of record to high (%d) set to %d", *timeval, DEFAULT_TTL);
-		*timeval = DEFAULT_TTL;
-	}
-
-	if (*timeval < TTL_MIN) {
-		err_msg("ttl of record to low (%d) set to %d", *timeval, DEFAULT_TTL);
-		*timeval = DEFAULT_TTL;
-	}
-
-        return eat_whitespaces(&str[n]);
-}
-
-
-/* A +86400 a.example.net. 192.168.1.1 */
-static int rr_parse_a(char *conf)
-{
-        char *ptr = conf;
-        int ret, n;
-        char host_str[MAX_HOSTNAME_STR + 1];
-	char ip_str[INET_ADDRSTRLEN + 1];
-        int timeval = DEFAULT_TTL; /* time in seconds */
-
-        if (ptr[0] == '+')
-                ptr = parse_ttl(ptr, &timeval);
-
-        /* parse hostname */
-        ret = sscanf(ptr, "%255[^ \t]%n", host_str, &n);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed hostname string: \"%s\"", ptr);
-
-	if (host_str[n - 1] != '.')
-		err_msg_die(EXIT_FAILCONF, "malformed hostname: "
-				"\"%s\" - trailing dot missing", ptr);
-
-        ptr += n; /* point to the first whitespace */
-        ptr = eat_whitespaces(ptr);
-
-        /* parse ip */
-        ret = sscanf(ptr, "%16[^ \t]%n", ip_str, &n);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed ip string: \"%s\"", ptr);
-
-	/* check if the ip is clean */
-	if (!(ip_valid_addr(AF_INET, ip_str)))
-                err_msg_die(EXIT_FAILCONF, "malformed ip string: \"%s\"", ip_str);
-
-        pr_debug("A record: ttl: %d hostname: %s ipv4: %s", timeval, host_str, ip_str);
-
-        return SUCCESS;
-}
-
+#if 0
 
 /* AAAA +86400 a.example.net. 2001:0DB8:: */
-static int rr_parse_aaaa(char *conf)
+static int rr_parse_aaaa(struct ctx *ctx, char *conf)
 {
         char *ptr = conf;
         int ret, n;
@@ -177,12 +75,19 @@ static int rr_parse_aaaa(char *conf)
 
         pr_debug("AAAA record: ttl: %d hostname: %s ipv6: %s", timeval, host_str, ip_str);
 
+	ret = cache_add(ctx, DNS_TYPE_AAAA, DNS_CLASS_INET, host_str,
+			strlen(host_str) + 1, ip_str, strlen(ip_str) + 1);
+	if (ret != 0) {
+		err_msg("Failed to add A type to database");
+		return FAILURE;
+	}
+
         return SUCCESS;
 }
 
 
 /* MX +86400 example.net. 10 a.example.net. */
-static int rr_parse_mx(char *conf)
+static int rr_parse_mx(struct ctx *ctx, char *conf)
 {
         char *ptr = conf;
         int ret, n, mx_priority;
@@ -193,7 +98,7 @@ static int rr_parse_mx(char *conf)
         if (ptr[0] == '+')
                 ptr = parse_ttl(ptr, &timeval);
 
-        /* parse hostname */
+        /* parse zonename */
         ret = sscanf(ptr, "%255[^ \t]%n", zone_str, &n);
         if (ret != 1)
                 err_msg_die(EXIT_FAILCONF, "malformed zone string: \"%s\"", ptr);
@@ -218,39 +123,27 @@ static int rr_parse_mx(char *conf)
         pr_debug("MX record: ttl: %d zone: %s priority: %d mx server: %s",
 			timeval, zone_str, mx_priority, mx_str);
 
+	ret = cache_add(ctx, DNS_TYPE_MX, DNS_CLASS_INET, zone_str,
+			strlen(zone_str) + 1, mx_str, strlen(mx_str) + 1);
+	if (ret != 0) {
+		err_msg("Failed to add A type to database");
+		return FAILURE;
+	}
+
+
         return SUCCESS;
 }
 
-
-static int record_type(const char *str, int str_len)
-{
-        if (!(strncasecmp(str, "a", str_len)))
-                return DNS_TYPE_A;
-        if (!(strncasecmp(str, "aaaa", str_len)))
-                return DNS_TYPE_AAAA;
-        if (!(strncasecmp(str, "ns", str_len)))
-                return DNS_TYPE_NS;
-        if (!(strncasecmp(str, "cname", str_len)))
-                return DNS_TYPE_CNAME;
-        if (!(strncasecmp(str, "soa", str_len)))
-                return DNS_TYPE_SOA;
-        if (!(strncasecmp(str, "ptr", str_len)))
-                return DNS_TYPE_PTR;
-        if (!(strncasecmp(str, "mx", str_len)))
-                return DNS_TYPE_MX;
-        if (!(strncasecmp(str, "txt", str_len)))
-                return DNS_TYPE_TXT;
-        if (!(strncasecmp(str, "aaaa", str_len)))
-                return DNS_TYPE_AAAA;
-
-        return -EINVAL;
-}
+#endif
 
 
-static int split_and_process(char *line)
+
+
+static int split_and_process(struct ctx *ctx, char *line)
 {
         int ret, n, rt;
         char field[16];
+	struct cache_data *cd;
 
         /* parse identifier */
         ret = sscanf(line, "%15[^ \t]%n", field, &n);
@@ -259,7 +152,7 @@ static int split_and_process(char *line)
 		return FAILURE;
         }
 
-        rt = record_type(field, n);
+        rt = str_record_type(field, n);
         if (rt < 0) {
                 err_msg_die(EXIT_FAILCONF, "record %s not supported", field);
 		return FAILURE;
@@ -268,19 +161,30 @@ static int split_and_process(char *line)
         line += n; /* point to the first whitespace */
         line = eat_whitespaces(line);
 
-        switch (rt) {
-        case DNS_TYPE_A:
-                return rr_parse_a(line);
-        case DNS_TYPE_AAAA:
-                return rr_parse_aaaa(line);
-        case DNS_TYPE_MX:
-                return rr_parse_mx(line);
-        default:
-                err_msg("not supported (yet)");
+	if (!type_fn_table[type_opts_to_index(rt)].zone_parser_to_cache_data) {
+		err_msg("record type has no registered parser - implementation error");
 		return FAILURE;
-        }
+	}
+
+	cd = type_fn_table[type_opts_to_index(rt)].zone_parser_to_cache_data(ctx, line);
+	if (!cd) {
+                err_msg("not supported (yet)");
+		goto err;
+	}
 
 
+	ret = cache_add(ctx, cd);
+	if (ret != SUCCESS) {
+		err_msg("Failed to add ressource record to database");
+		goto err_mem;
+	}
+
+	return SUCCESS;
+
+err_mem:
+	type_fn_table[type_opts_to_index(rt)].free_cache_data(ctx, cd);
+	cache_data_free(cd);
+err:
         return FAILURE;
 }
 
@@ -311,7 +215,7 @@ int parse_zonefiles(struct ctx *ctx)
 			if (ret != SUCCESS)
 				continue;
 
-			split_and_process(line);
+			split_and_process(ctx, line);
 		}
 
 		free(line);

@@ -39,7 +39,7 @@ struct edns0_option_r {
 
 const char *type_041_opt_text(void)
 {
-	return "type 041 option";
+	return "type 041 opt";
 }
 
 
@@ -78,6 +78,9 @@ int type_041_opt_construct_option(struct ctx *ctx, struct dns_pdu *dp,
 		struct dns_sub_section *dss, const char *data, int max_len)
 {
 	struct edns0_option *o = (struct edns0_option *)(data);
+
+	(void) dp;
+	(void) dss;
 
 	if (max_len < TYPE_041_OPT_LEN)
 		return -1;

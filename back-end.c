@@ -187,7 +187,7 @@ static int construct_additional_section(struct dns_journey *dnsj,
 	 * separated sections */
 	for (i = 0; i < additional_section_no; i++) {
 		type = dnsj->p_res_dns_pdu->additional_section[i]->type;
-		ret += type_opts[type_opts_to_index(type)].construct(dnsj->ctx,
+		ret += type_fn_table[type_opts_to_index(type)].construct(dnsj->ctx,
 				dnsj->p_res_dns_pdu, dnsj->p_res_dns_pdu->additional_section[i],
 				packet + offset, max_len);
 		if (ret < 0) {
@@ -333,7 +333,7 @@ static int response_cb(struct dns_journey *dnsj)
 			" %u answers (%u bytes)"
 			" %u authorities (%u bytes) %u additionals (%u bytes)]",
 			 dnsj->p_res_dns_pdu->questions,
-			 dnsj->p_req_dns_pdu->questions_section_len,
+			 dnsj->p_res_dns_pdu->questions_section_len,
 			 dnsj->p_res_dns_pdu->answers,
 			 dnsj->p_res_dns_pdu->answers_section_len,
 			 dnsj->p_res_dns_pdu->authority,

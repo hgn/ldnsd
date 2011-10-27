@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2010 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2010, 2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -184,24 +184,59 @@ static int internal_build_dns_request(struct ctx *ctx, struct dns_journey *dnsj)
 }
 
 
+static int search_cache(struct ctx *ctx,
+		struct dns_journey *dnsj, struct cache_data **cd)
+{
+	int ret;
+
+	pr_debug("search cache");
+
+	ret = cache_get(ctx, dnsj->p_req_type, dnsj->p_req_class,
+			dnsj->p_req_name, strlen(dnsj->p_req_name) + 1, cd);
+	if (ret != SUCCESS) {
+		ctx->statistics.lookup_not_in_cache++;
+		return FAILURE;
+	}
+
+	pr_debug("found in cache");
+	ctx->statistics.lookup_in_cache++;
+
+	return SUCCESS;
+}
+
+
 /* enqueue the query into the active queue */
 int active_dns_request_set(struct ctx *ctx,
 		struct dns_journey *dnsj,
 		int (*cb)(struct dns_journey *))
 {
 	int ret;
+	struct cache_data *cd = NULL;
 
 	assert(dnsj);
 	assert(cb);
 
 	/* 1. search local cache first */
-#if 0
-	ret = cache_get(dnsj);
+	ret = search_cache(ctx, dnsj, &cd);
 	if (ret == SUCCESS) {
-		/* in cache ... */
 
+		assert(cd);
+
+		pr_debug("found data in cache");
+		/* in cache, cd pints to the valid cache data */
+
+		dnsj->p_res_dns_pdu = alloc_dns_pdu();
+
+		ret = create_answer_pdu_from_cd(ctx, dnsj, cd);
+
+		(*cb)(dnsj);
+
+		/* now delete/free the journey data structure, everything
+		 * is handled and the process for this journey is closed */
+		free_dns_journey(dnsj);
+
+		return SUCCESS;
 	}
-#endif
 
 
 	/* 2. ok we didn't found anything in the

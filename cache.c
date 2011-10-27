@@ -19,6 +19,57 @@
 #include "ldnsd.h"
 #include "cache.h"
 
+struct cache_data *cache_data_create(uint16_t type, uint16_t class, uint32_t ttl,
+		char *key, size_t key_len)
+{
+	struct cache_data *cd;
+
+	assert(key_len > 0);
+
+	cd = xzalloc(sizeof(*cd));
+
+	cd->type = type;
+	cd->class = class;
+	cd->ttl = ttl;
+
+	cd->key_len = key_len;
+	cd->key = xmalloc(key_len);
+	memcpy(cd->key, key, key_len);
+
+	return cd;
+}
+
+
+int cache_data_cmp(const void *a, const void *b)
+{
+	const struct cache_data *aa, *bb;
+
+	assert(a);
+	assert(b);
+
+	aa = a; bb = b;
+
+	if (aa->type != bb->type || aa->class != bb->class)
+		return 0;
+
+	return type_fn_table[type_opts_to_index(aa->type)].cache_cmp(aa, bb);
+}
+
+
+void cache_data_free(void *arg)
+{
+	struct cache_data *cd = arg;
+
+	assert(arg);
+
+	/* cd->priv is freed be caller */
+
+	xfree(cd->key);
+	xfree(cd);
+}
+
+
+
 int cache_init(struct ctx *ctx)
 {
 	switch (ctx->cache_backend) {
@@ -57,21 +108,21 @@ int cache_free(struct ctx *ctx)
 	return SUCCESS;
 }
 
-int cache_add(struct ctx *ctx, struct dns_pdu *key, struct dns_pdu *res)
+int cache_add(struct ctx *ctx, struct cache_data *cd)
 {
 	switch (ctx->cache_backend) {
 		case CACHE_BACKEND_NONE:
 			return SUCCESS;
 			break;
 		case CACHE_BACKEND_MEMORY:
-			return cache_memory_add(ctx, key, res);
+			return cache_memory_add(ctx, cd);
 			break;
 		default:
 			err_msg_die(EXIT_FAILMISC,
 				"programmed error: cache strategy not supported");
 	}
 
-	return SUCCESS;
+	return FAILURE;
 }
 
 int cache_remove(struct ctx *ctx, struct dns_pdu *key)
@@ -91,14 +142,15 @@ int cache_remove(struct ctx *ctx, struct dns_pdu *key)
 	return SUCCESS;
 }
 
-int cache_get(struct ctx *ctx, struct dns_pdu *key, struct dns_pdu *ret_pdu)
+int cache_get(struct ctx *ctx, uint16_t type, uint16_t class,
+		char *key, size_t key_len, struct cache_data **cd)
 {
 	switch (ctx->cache_backend) {
 		case CACHE_BACKEND_NONE:
 			return FAILURE;
 			break;
 		case CACHE_BACKEND_MEMORY:
-			return cache_memory_get(ctx, key, ret_pdu);
+			return cache_memory_get(ctx, type, class, key, key_len, cd);
 			break;
 		default:
 			err_msg_die(EXIT_FAILMISC,

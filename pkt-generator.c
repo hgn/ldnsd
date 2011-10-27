@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2010 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2010, 2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -39,16 +39,20 @@ dnslabel_table_add(struct dnslabel_table *table, const char *label, off_t pos)
 {
 	char *v;
 	int p;
+
 	if (table->n_labels == MAX_LABELS)
-		return (-1);
+		return -1;
+
 	v = xstrdup(label);
 	if (v == NULL)
-		return (-1);
+		return -1;
+
 	p = table->n_labels++;
-	table->labels[p].v = v;
+
+	table->labels[p].v   = v;
 	table->labels[p].pos = pos;
 
-	return (0);
+	return 0;
 }
 
 /* Converts a string to a length-prefixed set of DNS labels, starting */
@@ -84,7 +88,11 @@ off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
 		j += 4;							\
 	} while (0)
 
-	if (name_len > 255) return -2;
+	if (name_len > 255) {
+		pr_debug("name is longer then 255 characters - "
+				" that is now spec conform! ;)");
+		return -2;
+	}
 
 	for (;;) {
 		const char *const start = name;
@@ -95,9 +103,15 @@ off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
 		name = strchr(name, '.');
 		if (!name) {
 			const unsigned int label_len = end - start;
-			if (label_len > 63) return -1;
-			if ((size_t)(j+label_len+1) > buf_len) return -2;
-			if (table) dnslabel_table_add(table, start, j);
+			if (label_len > 63)
+				return -1;
+
+			if ((size_t)(j+label_len+1) > buf_len)
+				return -2;
+
+			if (table)
+				dnslabel_table_add(table, start, j);
+
 			buf[j++] = label_len;
 
 			memcpy(buf + j, start, end - start);
@@ -106,13 +120,20 @@ off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
 		} else {
 			/* append length of the label. */
 			const unsigned int label_len = name - start;
-			if (label_len > 63) return -1;
-			if ((size_t)(j+label_len+1) > buf_len) return -2;
-			if (table) dnslabel_table_add(table, start, j);
+			if (label_len > 63)
+				return -1;
+
+			if ((size_t)(j+label_len+1) > buf_len)
+				return -2;
+
+			if (table)
+				dnslabel_table_add(table, start, j);
+
 			buf[j++] = label_len;
 
 			memcpy(buf + j, start, name - start);
 			j += name - start;
+
 			/* hop over the '.' */
 			name++;
 		}
@@ -121,10 +142,13 @@ off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
 	/* the labels must be terminated by a 0. */
 	/* It's possible that the name ended in a . */
 	/* in which case the zero is already there */
-	if (!j || buf[j-1]) buf[j++] = 0;
+	if (!j || buf[j - 1])
+		buf[j++] = 0;
+
 	return j;
+
  overflow:
-	return (-2);
+	return -2;
 }
 
 

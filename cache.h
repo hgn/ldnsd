@@ -32,13 +32,17 @@
 
 #include "ldnsd.h"
 
+struct cache_data *cache_data_create(uint16_t, uint16_t, uint32_t, char *, size_t);
+void cache_data_free(void *);
+int cache_data_cmp(const void *a, const void *b);
+
 
 /* cache-memory.c */
 int cache_memory_init(struct ctx *);
 int cache_memory_free(struct ctx *);
-int cache_memory_add(struct ctx *, struct dns_pdu *, struct dns_pdu *);
+int cache_memory_add(struct ctx *, struct cache_data *);
 int cache_memory_remove(struct ctx *, struct dns_pdu *);
-int cache_memory_get(struct ctx *, struct dns_pdu *, struct dns_pdu *);
+int cache_memory_get(struct ctx *, uint16_t type, uint16_t class, char *key, size_t key_len, struct cache_data **cd);
 
 
 #endif /* CACHE_H */

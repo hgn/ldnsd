@@ -1,0 +1,227 @@
+\documentclass[9pt]{article}
+\bibliographystyle{alpha}
+ 
+\usepackage{times}
+\usepackage{transparency}
+\usepackage[german]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[latin1]{inputenc}
+
+
+\screensize{8.5truein}{11truein}
+\begin{document}
+
+\title{LDNSD - A Fast and Scalable DNS Server}
+
+\setbackground{background.png}
+\begin{picture}(0,0)
+	\put(315,-475){\includegraphics[scale=.3]{figures/protocollabs-font}}
+\end{picture}
+\subtitle{ }
+
+\footerline{LDNSD - A Fast and Scalable DNS Server}
+\date{{\tiny http://www.protocollabs.com}}
+\name{Hagen Paul Pfeifer}
+\email{\small{hagen.pfeifer@protcollabs.com}}
+\company{ }
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{History DNS}{History DNS}
+\bi
+	\item In the early days (host)names to IP addresses are was achieved by manually maintained tables (host files)
+	\item DNS was introduced to provide the same Information automatically through recursive queries
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{Zones}{Zones}
+\bi
+	\item x
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{Recursive - Iterative Nameserver}{Recursive - Iterative Nameserver}
+\bi
+	\item x
+\ei
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{Dynamic DNS}{Dynamic DNS}
+\bi
+	\item Mechanism to change DNS Information in real-time
+	\item Standardized Mechanism: RFC 2136
+	\item Angedacht um DHCP clients mit auffinbar zu machen
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{Dynamic DNS}{Dynamic DNS}
+\bi
+	\item Wird bereits in vielen Gebieten eingesetzt - nur weiss man es oft nicht
+	\item Standard Mechanismus (abfragen kann man DNS Informationen ohne zusaetzliche Software!)
+	\item Keine propritaere Protokolle notwendig!
+	\item DNS "sitzt" logisch unter IP. Sprich alle Dienste (egal ob WWW, FTP, XMPP, ...) funktionieren ohne Eingriff! (LDAP
+	      liefert dies nicht, aber LDAP hat oft Funktionalitaet um DDNS Eintraege zu versenden!)
+	\item DNS liefert keine Usermobilitaet, sondern eine Hostmobilitaet
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{Dynamic DNS Clients}{Dynamic DNS Clients}
+\bi
+	\item nsupdate
+	\item Python, Perl, Ruby modules
+\begin{verbatim}
+# nsupdate
+> server ns.mydns.com
+> update delete oldhost.example.com. A
+> update add newhost.example.com. 86400 A 192.168.254.117
+> send
+> quit
+\end{verbatim}
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{Dynamic DNS Security}{Dynamic DNS Security}
+\bi
+	\item TSIG
+\ei
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{Multicast DNS}{Multicast DNS}
+\bi
+	\item Provide mechanism to operate in less configured environments (e.g. lookup a DNS a resource record in absence of a
+	conventional managed DNS server)
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{Nameserver Synchronization}{Nameserver Synchronization}
+\bi
+	\item Normally AXFR/IXFR Records
+	\item TCP
+\ei
+\end{slide}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\slidetitle{x}{x}
+\bi
+	\item x
+\ei
+\end{slide}
+
+
+
+
+\end{document}
+
+% vim600: fdm=marker tw=130 sw=4 ts=4 sts=4 ff=unix noet:

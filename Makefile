@@ -76,6 +76,9 @@ OBJ := ev.o \
 			 cache.o \
 			 cache-memory.o \
 			 zone-parser.o  \
+			 type-001-a.o \
+			 type-015-mx.o \
+			 type-028-aaaa.o \
 			 pkt-generator.o
 
 
@@ -106,7 +109,7 @@ $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(EXTLIBS) -o $(TARGET) $(OBJ)
 
 clean:
-	$(RM) -f $(OBJ) $(TARGET) core lex.yy.c parser.tab.h parser.tab.c *~
+	$(RM) -f $(OBJ) $(TARGET) core vgcore.* lex.yy.c parser.tab.h parser.tab.c *~
 
 distclean: clean
 	$(RM) -f cscope* tags

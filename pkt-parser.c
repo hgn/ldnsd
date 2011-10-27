@@ -22,57 +22,6 @@
 #define	IS_DNS_QUESTION(x) (x & DNS_FLAG_MASK_QUESTION)
 #define	IS_DNS_STANDARD_QUERY(x) (x & DNS_FLAG_STANDARD_QUERY)
 
-/* see http://en.wikipedia.org/wiki/List_of_DNS_record_types */
-#define	TYPE_A   1
-#define	TYPE_NS  2
-#define	TYPE_MD  3
-#define	TYPE_MF 4
-#define	TYPE_CNAME 5
-#define	TYPE_SOA 6
-#define	TYPE_MB  7
-#define	TYPE_MG 8
-#define	TYPE_MR 9
-#define	TYPE_NULL 10
-#define	TYPE_WKS 11
-#define	TYPE_PTR 12
-#define	TYPE_HINFO 13
-#define	TYPE_MINFO 14
-#define	TYPE_MX 15
-#define	TYPE_TXT 16
-
-#define	TYPE_AAAA	28
-#define	TYPE_AFSDB	18
-#define	TYPE_CERT	37
-#define	TYPE_DHCID	49
-#define	TYPE_DLV	32769
-#define	TYPE_DNAME	39
-#define	TYPE_OPT    41
-#define	TYPE_DNSKEY		48
-#define	TYPE_DS		43
-#define	TYPE_HIP	55
-#define	TYPE_IPSECKEY	45
-#define	TYPE_KEY	25
-#define	TYPE_LOC	29
-#define	TYPE_NAPTR	35
-#define	TYPE_NSEC	47
-#define	TYPE_NSEC3	50
-#define	TYPE_NSEC3PARAM		51
-#define	TYPE_RRSIG	46
-#define	TYPE_SIG	24
-#define	TYPE_SPF	99
-#define	TYPE_SRV	33
-#define	TYPE_SSHFP	44
-#define	TYPE_TA		32768
-#define	TYPE_TKEY	249
-#define	TYPE_TSIG	250
-
-/* not supported */
-#if 0
-#define	TYPE_AXFR	252
-#define	TYPE_IXFR	251
-#define	TYPE_OPT	41
-#endif
-
 
 int clone_dns_pkt(char *packet, size_t len, char **ret_pkt, size_t new_len)
 {
@@ -299,15 +248,15 @@ void free_dns_journey(struct dns_journey *x)
 static const char *type_to_str(uint16_t type)
 {
 	switch (type) {
-		case TYPE_A:     return "A";
-		case TYPE_AAAA:  return "AAAA";
-		case TYPE_MX:    return "MX";
-		case TYPE_PTR:   return "PTR";
-		case TYPE_SOA:   return "SOA";
-		case TYPE_CNAME: return "CNAME";
-		case TYPE_NS:    return "NS";
-		case TYPE_TXT:   return "TXT";
-		case TYPE_OPT:   return "OPT";
+		case DNS_TYPE_A:     return "A";
+		case DNS_TYPE_AAAA:  return "AAAA";
+		case DNS_TYPE_MX:    return "MX";
+		case DNS_TYPE_PTR:   return "PTR";
+		case DNS_TYPE_SOA:   return "SOA";
+		case DNS_TYPE_CNAME: return "CNAME";
+		case DNS_TYPE_NS:    return "NS";
+		case DNS_TYPE_TXT:   return "TXT";
+		case DNS_TYPE_OPT:   return "OPT";
 		default:         return "UNKNOWN";
 	};
 }
@@ -316,22 +265,22 @@ static const char *type_to_str(uint16_t type)
 static int is_valid_type(uint16_t type)
 {
 	switch (type) {
-		case TYPE_A: case TYPE_NS: case TYPE_MD: case TYPE_MF:
-		case TYPE_CNAME: case TYPE_SOA: case TYPE_MB: case TYPE_MG:
-		case TYPE_MR: case TYPE_NULL: case TYPE_WKS: case TYPE_PTR:
-		case TYPE_HINFO: case TYPE_MINFO: case TYPE_MX:
-		case TYPE_TXT: case TYPE_AAAA: case TYPE_AFSDB:
-		case TYPE_CERT: case TYPE_DHCID: case TYPE_DLV:
-		case TYPE_DNAME: case TYPE_DNSKEY: case TYPE_DS: case TYPE_HIP:
-		case TYPE_IPSECKEY: case TYPE_KEY: case TYPE_LOC:
-		case TYPE_NAPTR: case TYPE_NSEC: case TYPE_NSEC3:
-		case TYPE_NSEC3PARAM: case TYPE_RRSIG: case TYPE_SIG:
-		case TYPE_SPF: case TYPE_SRV: case TYPE_SSHFP: case TYPE_TA:
-		case TYPE_TKEY: case TYPE_TSIG: case TYPE_OPT:
-			return SUCCESS;
-			break;
-		default:
-			return FAILURE;
+	case DNS_TYPE_A: case DNS_TYPE_NS: case DNS_TYPE_MD: case DNS_TYPE_MF:
+	case DNS_TYPE_CNAME: case DNS_TYPE_SOA: case DNS_TYPE_MB: case DNS_TYPE_MG:
+	case DNS_TYPE_MR: case DNS_TYPE_NULL: case DNS_TYPE_WKS: case DNS_TYPE_PTR:
+	case DNS_TYPE_HINFO: case DNS_TYPE_MINFO: case DNS_TYPE_MX:
+	case DNS_TYPE_TXT: case DNS_TYPE_AAAA: case DNS_TYPE_AFSDB:
+	case DNS_TYPE_CERT: case DNS_TYPE_DHCID: case DNS_TYPE_DLV:
+	case DNS_TYPE_DNAME: case DNS_TYPE_DNSKEY: case DNS_TYPE_DS: case DNS_TYPE_HIP:
+	case DNS_TYPE_IPSECKEY: case DNS_TYPE_KEY: case DNS_TYPE_LOC:
+	case DNS_TYPE_NAPTR: case DNS_TYPE_NSEC: case DNS_TYPE_NSEC3:
+	case DNS_TYPE_NSEC3PARAM: case DNS_TYPE_RRSIG: case DNS_TYPE_SIG:
+	case DNS_TYPE_SPF: case DNS_TYPE_SRV: case DNS_TYPE_SSHFP: case DNS_TYPE_TA:
+	case DNS_TYPE_TKEY: case DNS_TYPE_TSIG: case DNS_TYPE_OPT:
+		return SUCCESS;
+		break;
+	default:
+		return FAILURE;
 
 	}
 	return FAILURE;
@@ -366,86 +315,46 @@ static int is_valid_class(uint16_t class)
 void pretty_print_flags(FILE *fp, uint16_t flags)
 {
 	switch ((flags & 0x8000) >> 15) {
-		case 1:
-			fprintf(fp, "QR set: response, ");
-			break;
-		case 0:
-			fprintf(fp, "QR set: query, ");
-			break;
-		default:
-			fprintf(fp, "QR set: UNKNOWN, ");
-			break;
+	case 1: fprintf(fp, "QR set: response, "); break;
+	case 0: fprintf(fp, "QR set: query, "); break;
+	default: fprintf(fp, "QR set: UNKNOWN, "); break;
 	}
 
 	switch ((flags & 0x7800) >> 11) {
-		case 0:
-			fprintf(fp, "opcode: standard query, ");
-			break;
-		case 1:
-			fprintf(fp, "opcode: inverse query, ");
-			break;
-		case 2:
-			fprintf(fp, "opcode: server status request, ");
-			break;
-		default:
-			fprintf(fp, "opcode: UNKNOWN, ");
-			break;
+	case 0: fprintf(fp, "opcode: standard query, "); break;
+	case 1: fprintf(fp, "opcode: inverse query, "); break;
+	case 2: fprintf(fp, "opcode: server status request, "); break;
+	default: fprintf(fp, "opcode: UNKNOWN, "); break;
 	}
 
 	switch ((flags & 0x0400) >> 10) {
-		case 1:
-			fprintf(fp, "AA: authoritative answer, ");
-			break;
-		case 0:
-			fprintf(fp, "AA: non-authoritative answer, ");
-			break;
-		default: /* could not happened */
-			break;
+	case 1: fprintf(fp, "AA: authoritative answer, "); break;
+	case 0: fprintf(fp, "AA: non-authoritative answer, "); break;
+	default: /* could not happened */ break;
 	}
 
 	switch ((flags & 0x0200) >> 9) {
-		case 1:
-			fprintf(fp, "TC: truncated, ");
-			break;
-		case 0:
-			fprintf(fp, "TC: not truncated, ");
-			break;
-		default: /* could not happened */
-			break;
+	case 1: fprintf(fp, "TC: truncated, "); break;
+	case 0: fprintf(fp, "TC: not truncated, "); break;
+	default: /* could not happened */ break;
 	}
 
 	switch ((flags & 0x0100) >> 8) {
-		case 1:
-			fprintf(fp, "RD: recursion desired, ");
-			break;
-		case 0:
-			fprintf(fp, "RD: no recursion desired, ");
-			break;
-		default: /* could not happened */
-			break;
+	case 1: fprintf(fp, "RD: recursion desired, "); break;
+	case 0: fprintf(fp, "RD: no recursion desired, "); break;
+	default: /* could not happened */ break;
 	}
 
 	switch ((flags & 0x0080) >> 7) {
-		case 1:
-			fprintf(fp, "RA: recursive available, ");
-			break;
-		case 0:
-			fprintf(fp, "RA: recursive not available, ");
-			break;
-		default: /* could not happened */
-			break;
+	case 1: fprintf(fp, "RA: recursive available, "); break;
+	case 0: fprintf(fp, "RA: recursive not available, "); break;
+	default: /* could not happened */ break;
 	}
 
 	switch (flags & 0x000f) {
-		case 0:
-			fprintf(fp, "RCODE: no error, ");
-			break;
-		case 3:
-			fprintf(fp, "RCODE: name error, ");
-			break;
-		default:
-			fprintf(fp, "RCODE: UNKNWON error, ");
-			break;
+	case 0: fprintf(fp, "RCODE: no error, "); break;
+	case 3: fprintf(fp, "RCODE: name error, "); break;
+	default: fprintf(fp, "RCODE: UNKNWON error, "); break;
 	}
 
 	fprintf(fp, "\n");
@@ -724,7 +633,7 @@ static unsigned parse_rr_section(struct ctx *ctx, struct dns_pdu *dr,
 	 * and the situation when the type isn't supported
 	 * correctly. ret must be substituted with i as used
 	 * in the former calls to getXXX() */
-	ret = type_opts[type_opts_to_index(dnssq->type)].parse(
+	ret = type_fn_table[type_opts_to_index(dnssq->type)].parse(
 			ctx, dr, dnssq, packet + type_offset,
 			max_len - type_offset);
 	if (ret != SUCCESS) {
@@ -746,6 +655,75 @@ static unsigned parse_rr_section(struct ctx *ctx, struct dns_pdu *dr,
 	*dnssq_ret = dnssq;
 
 	return i;
+}
+
+int create_answer_pdu_from_cd(struct ctx *ctx,
+		struct dns_journey *dnsj, struct cache_data *cd)
+{
+
+	assert(ctx);
+	assert(dnsj->p_res_dns_pdu);
+	assert(dnsj);
+	assert(cd);
+
+
+#if 0
+	dns_pdu = dnsj->p_res_dns_pdu;
+
+	/* FIXME */
+	dnsj->p_res_dns_pdu->answers = 1;
+	dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * 1);
+	dns_pdu->answers_section_len = 1;
+	dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
+
+	/* construct meta-data */
+	dns_pdu->answers_section[0]->name = xmalloc(cd->val_len);
+	memcpy(dns_pdu->answers_section[0]->name, cd->val, cd->val_len);
+	dns_pdu->answers_section[0]->type = cd->type;
+	dns_pdu->answers_section[0]->class = cd->class;
+
+	/* fixme: */
+	dns_pdu->answers_section[0]->ttl = 90000;
+
+	/* 4 -> IPv4 address */
+	dns_pdu->answers_section[0]->rdlength = 4;
+
+
+	/* construct data (which is later then copied directly */
+	/* FIXME: alloc packet everywhere, free everywhere */
+
+	dns_pdu->answers_section_ptr = xzalloc(16);
+	dns_pdu->answers_section_ptr[0] = 0xc0;
+	dns_pdu->answers_section_ptr[1] = 0x0c;
+
+	/* type */
+	dns_pdu->answers_section_ptr[2] = 0x00;
+	dns_pdu->answers_section_ptr[3] = 0x10;
+
+	/* class */
+	dns_pdu->answers_section_ptr[4] = 0x00;
+	dns_pdu->answers_section_ptr[5] = 0x01;
+
+	/* ttl */
+	dns_pdu->answers_section_ptr[6] = 0x00;
+	dns_pdu->answers_section_ptr[7] = 0x00;
+	dns_pdu->answers_section_ptr[8] = 0x0e;
+	dns_pdu->answers_section_ptr[9] = 0x10;
+
+	/* length */
+	dns_pdu->answers_section_ptr[10] = 0x00;
+	dns_pdu->answers_section_ptr[11] = 0x04;
+
+	/* data */
+	dns_pdu->answers_section_ptr[12] = 0x4e;
+	dns_pdu->answers_section_ptr[13] = 0x2f;
+	dns_pdu->answers_section_ptr[14] = 0xde;
+	dns_pdu->answers_section_ptr[15] = 0xd2;
+
+#endif
+
+
+	return SUCCESS;
 }
 
 
@@ -905,7 +883,7 @@ int parse_dns_packet(struct ctx *ctx, const char *packet, const size_t len,
 		dr->answers_section = xzalloc(sizeof(struct dns_sub_section *) * dr->answers);
 
 		/* save offset of this section */
-		dr->answers_section_ptr = packet + i;
+		dr->answers_section_ptr = (char *)packet + i;
 
 		for (j = 0; j < dr->answers; j++) {
 			struct dns_sub_section *dnssq;
