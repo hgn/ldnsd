@@ -89,7 +89,14 @@ int cache_memory_get(struct ctx *ctx,  uint16_t type, uint16_t class,
 
 	data_list = ((struct cache_memory_private *)ctx->cache)->data_list;
 
-	random_ttl = 666666;
+	/* ttl is uninteresting here because
+	 * in cache_data_key_cmp() only type,
+	 * class, key_len and the key is compared.
+	 * All other fields, especially record type
+	 * specific fields are ignored. Of course:
+	 * if we source the cache for a specific key
+	 * we search then because we wan't the value. */
+	random_ttl = 0;
 
 	tmp_cd = cache_data_create(type, class, random_ttl, key, key_len);
 	if (!tmp_cd) {
@@ -99,7 +106,7 @@ int cache_memory_get(struct ctx *ctx,  uint16_t type, uint16_t class,
 
 	for (ele = list_head(data_list); ele != NULL; ele = list_next(ele)) {
 		*cd = list_data(ele);
-		ret = cache_data_cmp((const void *)*cd, (const void *)tmp_cd);
+		ret = cache_data_key_cmp((const void *)*cd, (const void *)tmp_cd);
 		if (ret == SUCCESS) { /* found entry */
 			gret = SUCCESS;
 			goto out;

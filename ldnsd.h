@@ -99,6 +99,8 @@ typedef uint64_t be64;
         __max1 > __max2 ? __max1: __max2; })
 
 #define stringify(x...) #x
+#define streq(a, b) (strcmp((a), (b)) == 0)
+#define strcaseeq(a, b) (strcasecmp((a), (b)) == 0)
 
 #define TIME_GT(x,y) (x->tv_sec > y->tv_sec || (x->tv_sec == y->tv_sec && x->tv_usec > y->tv_usec))
 #define TIME_LT(x,y) (x->tv_sec < y->tv_sec || (x->tv_sec == y->tv_sec && x->tv_usec < y->tv_usec))
@@ -621,9 +623,12 @@ struct dns_journey {
 /* main data structure, holding a record. Must be
  * implemented by all caching strategies */
 struct cache_data {
-	 uint16_t type;
-	 uint16_t class;
+
+	 uint16_t type;  /* DNS_TYPE_*     */
+	 uint16_t class; /* DNS_CLASS_INET */
+
 	 uint32_t ttl;
+
 	 char *key;
 	 size_t key_len;
 
@@ -633,6 +638,8 @@ struct cache_data {
 		struct in6_addr v6addr;
 	 };
 };
+
+#define cache_data_priv(p) (p->priv_data)
 
 
 #define	MAX_PACKET_LEN 2048
@@ -765,18 +772,18 @@ extern int parse_zonefiles(struct ctx *);
 /* type-001-a.c */
 extern const char *type_001_a_text(void);
 extern struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
-extern void type_001_a_free_cache_data(struct ctx *, struct cache_data *);
+extern void type_001_a_free_cache_data(struct cache_data *);
 
 /* type-015-mx.c */
 extern const char *type_015_mx_text(void);
 extern struct cache_data *type_015_mx_zone_parser_to_cache_data(struct ctx *, char *);
-extern void type_015_mx_free_cache_data(struct ctx *, struct cache_data *);
+extern void type_015_mx_free_cache_data(struct cache_data *);
 extern int type_015_mx_cache_cmp(const struct cache_data *, const struct cache_data *);
 
 /* type-028-aaaa.c */
 extern const char *type_028_aaaa_text(void);
 extern struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *, char *);
-extern void type_028_aaaa_free_cache_data(struct ctx *, struct cache_data *);
+extern void type_028_aaaa_free_cache_data(struct cache_data *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
@@ -797,7 +804,7 @@ extern int type_999_generic_available(struct dns_pdu *);
 extern unsigned type_opts_to_index(uint16_t);
 extern int str_record_type(const char *, int);
 extern struct cache_data *type_999_generic_zone_parser_to_cache_data(struct ctx *, char *);
-extern void type_999_generic_free_cache_data(struct ctx *, struct cache_data *);
+extern void type_999_generic_free_cache_data(struct cache_data *);
 extern int type_999_generic_cache_cmp(const struct cache_data *, const struct cache_data *);
 
 
@@ -810,16 +817,19 @@ struct type_fn_table {
 	/* returns a description of this type */
 	const char *(*text)(void);
 
-	int (*parse)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+	int (*parse)(struct ctx *, struct dns_pdu *, struct dns_sub_section *,
+			const char *, int);
 
 	/* construct generates a blob based on the struct dns_sub_section
 	 * priv_data section.  Construct return the size of the constructed
 	 * data blob or -1 for a error */
-	int (*construct)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+	int (*construct)(struct ctx *, struct dns_pdu *, struct dns_sub_section *,
+			const char *, int);
 
 	/* destruct parses the packet rr and save relevant information
 	 * in priv_data. For A records this are 4 byte in priv_data */
-	int (*destruct)(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int, int);
+	int (*destruct)(struct ctx *, struct dns_pdu *, struct dns_sub_section *,
+			const char *, int, int);
 
 	/* free frees the priv_data pointer, in the
 	 * simplest case this is a pointer to free */
@@ -828,7 +838,16 @@ struct type_fn_table {
 	/* parse the zone file entry and returns a blob, suitable to
 	 * transmission */
 	struct cache_data *(*zone_parser_to_cache_data)(struct ctx *, char *);
-	void (*free_cache_data)(struct ctx *, struct cache_data *);
+
+	/* some types allocate dynamic memory for their data. The rule
+	 * is that types which are larger then 8 byte MUST dynamically
+	 * allocate memory for private data. The A record type (a 4 byte
+	 * ip address) is smaller and therefore saved in the union.
+	 *
+	 * NOTE: this function MUST only free private data, the cache_data
+	 * is freed somewhere else. So don't free them, see type_018_mx.c
+	 * for an example. */
+	void (*free_cache_priv_data)(struct cache_data *);
 
 	/* compare function for cache data. Every RR type in the zone file
 	 * MUST overwrite their own compare function. Please see

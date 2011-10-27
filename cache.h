@@ -33,8 +33,10 @@
 #include "ldnsd.h"
 
 struct cache_data *cache_data_create(uint16_t, uint16_t, uint32_t, char *, size_t);
+struct cache_data *cache_data_create_private(uint16_t, uint16_t, uint32_t, char *, size_t, void *);
 void cache_data_free(void *);
 int cache_data_cmp(const void *a, const void *b);
+int cache_data_key_cmp(const void *a, const void *b);
 
 
 /* cache-memory.c */

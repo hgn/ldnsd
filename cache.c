@@ -19,8 +19,8 @@
 #include "ldnsd.h"
 #include "cache.h"
 
-struct cache_data *cache_data_create(uint16_t type, uint16_t class, uint32_t ttl,
-		char *key, size_t key_len)
+struct cache_data *cache_data_create(uint16_t type, uint16_t class,
+		uint32_t ttl, char *key, size_t key_len)
 {
 	struct cache_data *cd;
 
@@ -40,7 +40,23 @@ struct cache_data *cache_data_create(uint16_t type, uint16_t class, uint32_t ttl
 }
 
 
-int cache_data_cmp(const void *a, const void *b)
+struct cache_data *cache_data_create_private(uint16_t type, uint16_t class,
+		uint32_t ttl, char *key, size_t key_len, void *priv_data)
+{
+	struct cache_data *cd = cache_data_create(type, class, ttl, key, key_len);
+	cache_data_priv(cd) = priv_data;
+
+	return cd;
+}
+
+
+/* key compare function, sufficient for search functions where
+ * type, class and key must be equal. The key compare function
+ * is independent from type specific data (like MX precedence,
+ * where the full compare function compare the whole data set.
+ *
+ * Return true when equal, false otherwise */
+int cache_data_key_cmp(const void *a, const void *b)
 {
 	const struct cache_data *aa, *bb;
 
@@ -52,6 +68,31 @@ int cache_data_cmp(const void *a, const void *b)
 	if (aa->type != bb->type || aa->class != bb->class)
 		return 0;
 
+	if (aa->key_len != bb->key_len)
+		return 0;
+
+	if (memcmp(aa->key, bb->key, aa->key_len))
+		return 0;
+
+	return 1;
+}
+
+
+/* full data compare function, used to validate a data set complete
+ * like MX precedence and zone name. Every type MUST implement a own
+ * compare function */
+int cache_data_cmp(const void *a, const void *b)
+{
+	int ret;
+	const struct cache_data *aa, *bb;
+
+	ret = cache_data_key_cmp(a, b);
+	if (!ret)
+		return 0;
+
+	aa = a;
+	bb = b;
+
 	return type_fn_table[type_opts_to_index(aa->type)].cache_cmp(aa, bb);
 }
 
@@ -61,13 +102,12 @@ void cache_data_free(void *arg)
 	struct cache_data *cd = arg;
 
 	assert(arg);
+	assert(type_fn_table[type_opts_to_index(cd->type)].free_cache_priv_data);
 
-	/* cd->priv is freed be caller */
-
+	type_fn_table[type_opts_to_index(cd->type)].free_cache_priv_data(cd);
 	xfree(cd->key);
 	xfree(cd);
 }
-
 
 
 int cache_init(struct ctx *ctx)
@@ -89,6 +129,7 @@ int cache_init(struct ctx *ctx)
 	return SUCCESS;
 }
 
+
 int cache_free(struct ctx *ctx)
 {
 	switch (ctx->cache_backend) {
@@ -108,6 +149,7 @@ int cache_free(struct ctx *ctx)
 	return SUCCESS;
 }
 
+
 int cache_add(struct ctx *ctx, struct cache_data *cd)
 {
 	switch (ctx->cache_backend) {
@@ -125,6 +167,7 @@ int cache_add(struct ctx *ctx, struct cache_data *cd)
 	return FAILURE;
 }
 
+
 int cache_remove(struct ctx *ctx, struct dns_pdu *key)
 {
 	switch (ctx->cache_backend) {
@@ -141,6 +184,7 @@ int cache_remove(struct ctx *ctx, struct dns_pdu *key)
 
 	return SUCCESS;
 }
+
 
 int cache_get(struct ctx *ctx, uint16_t type, uint16_t class,
 		char *key, size_t key_len, struct cache_data **cd)

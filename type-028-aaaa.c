@@ -72,8 +72,7 @@ struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *ctx, char
 }
 
 
-void type_028_aaaa_free_cache_data(struct ctx *ctx, struct cache_data *cd)
+void type_028_aaaa_free_cache_data(struct cache_data *cd)
 {
-	(void) ctx;
 	(void) cd;
 }

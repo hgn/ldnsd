@@ -37,108 +37,6 @@ static int sanitze_line(char *line)
 }
 
 
-
-#if 0
-
-/* AAAA +86400 a.example.net. 2001:0DB8:: */
-static int rr_parse_aaaa(struct ctx *ctx, char *conf)
-{
-        char *ptr = conf;
-        int ret, n;
-        char host_str[MAX_HOSTNAME_STR + 1];
-	char ip_str[INET6_ADDRSTRLEN + 1];
-        int timeval = DEFAULT_TTL; /* time in seconds */
-
-        if (ptr[0] == '+')
-                ptr = parse_ttl(ptr, &timeval);
-
-        /* parse hostname */
-        ret = sscanf(ptr, "%255[^ \t]%n", host_str, &n);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed hostname string: \"%s\"", ptr);
-
-	if (host_str[n - 1] != '.')
-		err_msg_die(EXIT_FAILCONF, "malformed hostname: "
-				"\"%s\" - trailing dot missing", ptr);
-
-        ptr += n; /* point to the first whitespace */
-        ptr = eat_whitespaces(ptr);
-
-        /* parse ip */
-        ret = sscanf(ptr, "%46[^ \t]%n", ip_str, &n);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed ipv6 string: \"%s\"", ptr);
-
-	/* check if the ip is clean */
-	if (!(ip_valid_addr(AF_INET6, ip_str)))
-                err_msg_die(EXIT_FAILCONF, "malformed ipv6 string: \"%s\"", ip_str);
-
-        pr_debug("AAAA record: ttl: %d hostname: %s ipv6: %s", timeval, host_str, ip_str);
-
-	ret = cache_add(ctx, DNS_TYPE_AAAA, DNS_CLASS_INET, host_str,
-			strlen(host_str) + 1, ip_str, strlen(ip_str) + 1);
-	if (ret != 0) {
-		err_msg("Failed to add A type to database");
-		return FAILURE;
-	}
-
-        return SUCCESS;
-}
-
-
-/* MX +86400 example.net. 10 a.example.net. */
-static int rr_parse_mx(struct ctx *ctx, char *conf)
-{
-        char *ptr = conf;
-        int ret, n, mx_priority;
-        char zone_str[MAX_HOSTNAME_STR + 1];
-	char mx_str[INET6_ADDRSTRLEN + 1];
-        int timeval = DEFAULT_TTL; /* time in seconds */
-
-        if (ptr[0] == '+')
-                ptr = parse_ttl(ptr, &timeval);
-
-        /* parse zonename */
-        ret = sscanf(ptr, "%255[^ \t]%n", zone_str, &n);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed zone string: \"%s\"", ptr);
-
-	if (zone_str[n - 1] != '.')
-		err_msg_die(EXIT_FAILCONF, "malformed zone: "
-				"\"%s\" - trailing dot missing", ptr);
-
-        ptr += n; /* point to the first whitespace */
-        ptr = eat_whitespaces(ptr);
-
-        /* parse mx prioryty */
-        ret = sscanf(ptr, "%d", &mx_priority);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed prioryty string: \"%s\"", ptr);
-
-        /* parse mx name */
-        ret = sscanf(ptr, "%255[^ \t]%n", mx_str, &n);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed mx string: \"%s\"", ptr);
-
-        pr_debug("MX record: ttl: %d zone: %s priority: %d mx server: %s",
-			timeval, zone_str, mx_priority, mx_str);
-
-	ret = cache_add(ctx, DNS_TYPE_MX, DNS_CLASS_INET, zone_str,
-			strlen(zone_str) + 1, mx_str, strlen(mx_str) + 1);
-	if (ret != 0) {
-		err_msg("Failed to add A type to database");
-		return FAILURE;
-	}
-
-
-        return SUCCESS;
-}
-
-#endif
-
-
-
-
 static int split_and_process(struct ctx *ctx, char *line)
 {
         int ret, n, rt;
@@ -182,7 +80,6 @@ static int split_and_process(struct ctx *ctx, char *line)
 	return SUCCESS;
 
 err_mem:
-	type_fn_table[type_opts_to_index(rt)].free_cache_data(ctx, cd);
 	cache_data_free(cd);
 err:
         return FAILURE;

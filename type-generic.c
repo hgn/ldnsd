@@ -32,7 +32,7 @@ struct type_fn_table type_fn_table[] = {
 		.destruct                  = type_999_generic_destruct,
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_001_a_zone_parser_to_cache_data,
-		.free_cache_data           = type_001_a_free_cache_data,
+		.free_cache_priv_data           = type_001_a_free_cache_data,
 		.cache_cmp                 = type_999_generic_cache_cmp
 	},
 	{ /* MX Records */
@@ -42,7 +42,7 @@ struct type_fn_table type_fn_table[] = {
 		.destruct                  = type_999_generic_destruct,
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_015_mx_zone_parser_to_cache_data,
-		.free_cache_data           = type_015_mx_free_cache_data,
+		.free_cache_priv_data           = type_015_mx_free_cache_data,
 		.cache_cmp                 = type_015_mx_cache_cmp
 	},
 	{
@@ -52,7 +52,7 @@ struct type_fn_table type_fn_table[] = {
 		.destruct                  = type_999_generic_destruct,
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_028_aaaa_zone_parser_to_cache_data,
-		.free_cache_data           = type_028_aaaa_free_cache_data,
+		.free_cache_priv_data           = type_028_aaaa_free_cache_data,
 		.cache_cmp                 = type_999_generic_cache_cmp
 	},
 	{
@@ -69,7 +69,7 @@ struct type_fn_table type_fn_table[] = {
 		.construct        = type_999_generic_construct,
 		.destruct         = type_999_generic_destruct,
 		.free             = type_999_generic_free,
-		.free_cache_data  = type_999_generic_free_cache_data,
+		.free_cache_priv_data  = type_999_generic_free_cache_data,
 		.cache_cmp        = type_999_generic_cache_cmp
 	}
 };
@@ -247,9 +247,8 @@ int type_999_generic_available(struct dns_pdu *dns_pdu)
 	return 0;
 }
 
-void type_999_generic_free_cache_data(struct ctx *ctx, struct cache_data *cd)
+void type_999_generic_free_cache_data(struct cache_data *cd)
 {
-	(void) ctx;
 	(void) cd;
 
 	abort();
