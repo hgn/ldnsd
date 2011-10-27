@@ -86,7 +86,7 @@ int type_041_opt_construct_option(struct ctx *ctx, struct dns_pdu *dp,
 		return -1;
 
 	o->root             = 0; /* root */
-	o->type             = htons(41); /* FIXME: define */
+	o->type             = htons(DNS_TYPE_OPT);
 	o->udp_payload_size = htons(ctx->buf_max);
 	o->high_bit_e_rcode = 0x0;
 	o->version          = 0x0;
@@ -107,7 +107,7 @@ int type_041_opt_construct_option(struct dns_journey *dnsj,
 		return -1;
 
 	o->root             = 0; /* root */
-	o->type             = htons(41); /* FIXME: define */
+	o->type             = htons(DNS_TYPE_OPT);
 	o->udp_payload_size = htons(dnsj->ctx->buf_max);
 	o->high_bit_e_rcode = 0x0;
 	o->version          = 0x0;
