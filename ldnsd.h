@@ -110,25 +110,47 @@ typedef uint64_t be64;
 # define unlikely(x) __builtin_expect(!!(x), 0)
 #endif
 
+#define BUG() do { \
+          fprintf(stderr, "BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
+          abort(); \
+  } while (0)
+
+#define BUG_ON(condition) do { if (unlikely(condition)) BUG(); } while(0)
+
+enum {
+	MSG_ERROR = 1,
+	MSG_WARNING
+};
+
+#define wrn_msg(format, args...) \
+	do { \
+		x_err_ret(MSG_WARNING, __FILE__, __LINE__,  format , ## args); \
+	} while (0)
+
+#define wrn_sys(format, args...) \
+	do { \
+		x_err_sys(MSG_WARNING, __FILE__, __LINE__,  format , ## args); \
+	} while (0)
+
 #define err_msg(format, args...) \
 	do { \
-		x_err_ret(__FILE__, __LINE__,  format , ## args); \
+		x_err_ret(MSG_ERROR, __FILE__, __LINE__,  format , ## args); \
 	} while (0)
 
 #define err_sys(format, args...) \
 	do { \
-		x_err_sys(__FILE__, __LINE__,  format , ## args); \
+		x_err_sys(MSG_ERROR, __FILE__, __LINE__,  format , ## args); \
 	} while (0)
 
 #define err_sys_die(exitcode, format, args...) \
 	do { \
-		x_err_sys(__FILE__, __LINE__, format , ## args); \
+		x_err_sys(MSG_ERROR, __FILE__, __LINE__, format , ## args); \
 		exit(exitcode); \
 	} while (0)
 
 #define err_msg_die(exitcode, format, args...) \
 	do { \
-		x_err_ret(__FILE__, __LINE__,  format , ## args); \
+		x_err_ret(MSG_ERROR, __FILE__, __LINE__,  format , ## args); \
 		exit(exitcode); \
 	} while (0)
 
@@ -632,10 +654,13 @@ struct cache_data {
 	 char *key;
 	 size_t key_len;
 
+	 /* this union should never be larger
+	  * as sizeof(void *). Every data element
+	  * smaller or equal to 8 byte (we assume
+	  * x86_64) can be added to the union. */
 	 union {
 		void *priv_data;
 		struct in_addr v4addr;
-		struct in6_addr v6addr;
 	 };
 };
 
@@ -670,8 +695,8 @@ extern int32_t average_value(struct average *);
 extern unsigned long long xstrtoull(const char *);
 extern void xfstat(int, struct stat *, const char *);
 extern void xsetsockopt(int, int, int, const void *, socklen_t, const char *);
-extern void x_err_sys(const char *, int, const char *, ...);
-extern void x_err_ret(const char *, int, const char *, ...);
+extern void x_err_sys(int, const char *, int, const char *, ...);
+extern void x_err_ret(int, const char *, int, const char *, ...);
 extern void msg(const char *, ...);
 extern double tv_to_sec(struct timeval *);
 extern int subtime(struct timeval *, struct timeval *, struct timeval *);

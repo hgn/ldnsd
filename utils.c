@@ -172,11 +172,11 @@ void msg(const char *format, ...)
 }
 
 
-static void err_doit(int sys_error, const char *file,
+static void err_doit(int we, int sys_error, const char *file,
 		const int line_no, const char *fmt, va_list ap)
 {
 	int errno_save;
-	char buf[MAXERRMSG];
+	char buf[MAXERRMSG], *prefix;
 
 	errno_save = errno;
 
@@ -187,29 +187,41 @@ static void err_doit(int sys_error, const char *file,
 				strerror(errno_save));
 	}
 
-	fprintf(stderr, "ERROR [%s:%d]: %s\n", file, line_no, buf);
+	switch (we) {
+	case MSG_ERROR:
+		prefix = "ERROR";
+		break;
+	case MSG_WARNING:
+		prefix = "WARNING";
+		break;
+	default:
+		BUG();
+		break;
+	}
+
+	fprintf(stderr, "%s [%s:%d]: %s\n", prefix, file, line_no, buf);
 	fflush(NULL);
 
 	errno = errno_save;
 }
 
 
-void x_err_ret(const char *file, int line_no, const char *fmt, ...)
+void x_err_ret(int we, const char *file, int line_no, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	err_doit(0, file, line_no, fmt, ap);
+	err_doit(we, 0, file, line_no, fmt, ap);
 	va_end(ap);
 }
 
 
-void x_err_sys(const char *file, int line_no, const char *fmt, ...)
+void x_err_sys(int we, const char *file, int line_no, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	err_doit(1, file, line_no, fmt, ap);
+	err_doit(we, 1, file, line_no, fmt, ap);
 	va_end(ap);
 }
 

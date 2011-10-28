@@ -19,6 +19,7 @@ AAAA +1h a.example.net. 2001:0DB8::1
 # 	name of the mail exchanger
 MX example.net. 10 a.example.net.
 MX example.net.	20	b.example.net.
+MX example.net.	20	b.example.net.
 
 
 #TXT  +86400 example.net. 'This is some text'

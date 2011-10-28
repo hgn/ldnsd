@@ -112,7 +112,11 @@ int parse_zonefiles(struct ctx *ctx)
 			if (ret != SUCCESS)
 				continue;
 
-			split_and_process(ctx, line);
+			ret = split_and_process(ctx, line);
+			if (ret != SUCCESS) {
+				wrn_msg("ignore zonefile entry \"%s\" - not critical",
+						line);
+			}
 		}
 
 		free(line);

@@ -33,6 +33,7 @@ struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *ctx, char *l
 	char *ptr = line;
 	int ret, n;
 	struct cache_data *cd;
+	struct in_addr addr;
 	char host_str[MAX_HOSTNAME_STR + 1];
 	char ip_str[INET_ADDRSTRLEN + 1];
 	int timeval = DEFAULT_TTL; /* time in seconds */
@@ -59,13 +60,16 @@ struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *ctx, char *l
 	if (ret != 1)
 		err_msg_die(EXIT_FAILCONF, "malformed ip string: \"%s\"", ptr);
 
-	/* check if the ip is clean */
-	if (!(ip_valid_addr(AF_INET, ip_str)))
-		err_msg_die(EXIT_FAILCONF, "malformed ip string: \"%s\"", ip_str);
+	ret = inet_pton(AF_INET, ip_str, &addr);
+	if (ret <= 0)
+		err_msg_die(EXIT_FAILCONF, "malformed ipv4 string: \"%s\"", ip_str);
 
 	pr_debug("A record: ttl: %d hostname: %s ipv4: %s", timeval, host_str, ip_str);
 
 	cd = cache_data_create(DNS_TYPE_A, DNS_CLASS_INET, timeval, host_str, strlen(host_str) + 1);
+
+	/* save IP address */
+	memcpy(&cd->v4addr, &addr, sizeof(cd->v4addr));
 
 	return cd;
 
