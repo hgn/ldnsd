@@ -42,18 +42,18 @@ struct type_fn_table type_fn_table[] = {
 		.destruct                  = type_999_generic_destruct,
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_015_mx_zone_parser_to_cache_data,
-		.free_cache_priv_data           = type_015_mx_free_cache_data,
+		.free_cache_priv_data      = type_015_mx_free_cache_data,
 		.cache_cmp                 = type_015_mx_cache_cmp
 	},
-	{
+	{ /* AAAA Records */
 		.text                      = type_028_aaaa_text,
 		.parse                     = type_999_generic_parse,
 		.construct                 = type_999_generic_construct,
 		.destruct                  = type_999_generic_destruct,
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_028_aaaa_zone_parser_to_cache_data,
-		.free_cache_priv_data           = type_028_aaaa_free_cache_data,
-		.cache_cmp                 = type_999_generic_cache_cmp
+		.free_cache_priv_data      = type_028_aaaa_free_cache_data,
+		.cache_cmp                 = type_028_aaaa_cache_cmp
 	},
 	{
 		.text      = type_041_opt_text,

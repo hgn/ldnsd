@@ -784,6 +784,7 @@ extern int type_015_mx_cache_cmp(const struct cache_data *, const struct cache_d
 extern const char *type_028_aaaa_text(void);
 extern struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *, char *);
 extern void type_028_aaaa_free_cache_data(struct cache_data *);
+extern int type_028_aaaa_cache_cmp(const struct cache_data *, const struct cache_data *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
