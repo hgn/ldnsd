@@ -7,30 +7,35 @@ TAR = tar
 FIND = find
 INSTALL = install
 
-EXTRA_WARNINGS := -Wformat
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wall
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wextra
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wformat-security
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wformat-y2k
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wshadow
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Winit-self
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wpacked
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wredundant-decls
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wstack-protector
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wstrict-aliasing=3
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wswitch-default
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wswitch-enum
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wno-system-headers
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wundef
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wvolatile-register-var
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wwrite-strings
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wbad-function-cast
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wmissing-declarations
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wmissing-prototypes
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wnested-externs
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wold-style-definition
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wstrict-prototypes
-EXTRA_WARNINGS := $(EXTRA_WARNINGS) -Wdeclaration-after-statement
+EXTRA_WARNINGS += -Wall
+EXTRA_WARNINGS += -Wbad-function-cast
+EXTRA_WARNINGS += -Wcast-align
+EXTRA_WARNINGS += -Wdeclaration-after-statement
+EXTRA_WARNINGS += -Wextra
+EXTRA_WARNINGS += -Wformat
+EXTRA_WARNINGS += -Wformat-security
+EXTRA_WARNINGS += -Wformat-y2k
+EXTRA_WARNINGS += -Wformat=2
+EXTRA_WARNINGS += -Winit-self
+EXTRA_WARNINGS += -Wmissing-declarations
+EXTRA_WARNINGS += -Wmissing-prototypes
+EXTRA_WARNINGS += -Wnested-externs
+EXTRA_WARNINGS += -Wnested-externs
+EXTRA_WARNINGS += -Wno-system-headers
+EXTRA_WARNINGS += -Wold-style-definition
+EXTRA_WARNINGS += -Wpacked
+EXTRA_WARNINGS += -Wredundant-decls
+EXTRA_WARNINGS += -Wshadow
+EXTRA_WARNINGS += -Wsign-compare
+EXTRA_WARNINGS += -Wstack-protector
+EXTRA_WARNINGS += -Wstrict-aliasing=3
+EXTRA_WARNINGS += -Wstrict-prototypes
+EXTRA_WARNINGS += -Wswitch-default
+EXTRA_WARNINGS += -Wswitch-enum
+EXTRA_WARNINGS += -Wundef
+EXTRA_WARNINGS += -Wunused-result
+EXTRA_WARNINGS += -Wvolatile-register-var
+EXTRA_WARNINGS += -Wwrite-strings
 
 ifeq ("$(origin DEBUG)", "command line")
   LDNSD_DEBUG = $(DEBUG)
@@ -71,8 +76,9 @@ OBJ := ev.o \
 			 lex.yy.o     \
 			 rc.o         \
 			 cli-opts.o   \
+			 type.o \
 			 type-041-opt.o \
-			 type-generic.o \
+			 type-999-generic.o \
 			 cache.o \
 			 cache-memory.o \
 			 zone-parser.o  \
