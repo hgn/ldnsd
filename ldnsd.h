@@ -794,6 +794,16 @@ extern int cache_get(struct ctx *, uint16_t, uint16_t, char *, size_t, struct ca
 /* zone-parser.c */
 extern int parse_zonefiles(struct ctx *);
 
+/* type.c */
+extern unsigned type_opts_to_index(uint16_t);
+extern int str_record_type(const char *, int);
+extern const char *type_999_generic_text(void);
+extern const char *type_to_str(uint16_t);
+extern int is_valid_type(uint16_t);
+extern const char *class_to_str(uint16_t);
+extern int is_valid_class(uint16_t);
+
+
 /* type-001-a.c */
 extern const char *type_001_a_text(void);
 extern struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
@@ -818,17 +828,12 @@ extern int type_041_opt_parse(struct ctx *, struct dns_pdu *, struct dns_sub_sec
 extern int type_041_opt_construct_option(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
 extern int type_041_opt_available(struct dns_pdu *);
 
-/* type-generic.c
- * this methods are called if no type function
- * is registered - it serves as a catch all function */
-extern const char *type_999_generic_text(void);
+/* type-999-generic.c */
 extern int type_999_generic_parse(struct ctx *, struct dns_pdu *,struct dns_sub_section *, const char *, int);
 extern int type_999_generic_destruct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int, int);
 extern int type_999_generic_construct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
 extern void type_999_generic_free(struct ctx *, struct dns_sub_section *);
 extern int type_999_generic_available(struct dns_pdu *);
-extern unsigned type_opts_to_index(uint16_t);
-extern int str_record_type(const char *, int);
 extern struct cache_data *type_999_generic_zone_parser_to_cache_data(struct ctx *, char *);
 extern void type_999_generic_free_cache_data(struct cache_data *);
 extern int type_999_generic_cache_cmp(const struct cache_data *, const struct cache_data *);
