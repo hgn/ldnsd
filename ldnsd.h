@@ -110,25 +110,47 @@ typedef uint64_t be64;
 # define unlikely(x) __builtin_expect(!!(x), 0)
 #endif
 
+#define BUG() do { \
+          fprintf(stderr, "BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
+          abort(); \
+  } while (0)
+
+#define BUG_ON(condition) do { if (unlikely(condition)) BUG(); } while(0)
+
+enum {
+	MSG_ERROR = 1,
+	MSG_WARNING
+};
+
+#define wrn_msg(format, args...) \
+	do { \
+		x_err_ret(MSG_WARNING, __FILE__, __LINE__,  format , ## args); \
+	} while (0)
+
+#define wrn_sys(format, args...) \
+	do { \
+		x_err_sys(MSG_WARNING, __FILE__, __LINE__,  format , ## args); \
+	} while (0)
+
 #define err_msg(format, args...) \
 	do { \
-		x_err_ret(__FILE__, __LINE__,  format , ## args); \
+		x_err_ret(MSG_ERROR, __FILE__, __LINE__,  format , ## args); \
 	} while (0)
 
 #define err_sys(format, args...) \
 	do { \
-		x_err_sys(__FILE__, __LINE__,  format , ## args); \
+		x_err_sys(MSG_ERROR, __FILE__, __LINE__,  format , ## args); \
 	} while (0)
 
 #define err_sys_die(exitcode, format, args...) \
 	do { \
-		x_err_sys(__FILE__, __LINE__, format , ## args); \
+		x_err_sys(MSG_ERROR, __FILE__, __LINE__, format , ## args); \
 		exit(exitcode); \
 	} while (0)
 
 #define err_msg_die(exitcode, format, args...) \
 	do { \
-		x_err_ret(__FILE__, __LINE__,  format , ## args); \
+		x_err_ret(MSG_ERROR, __FILE__, __LINE__,  format , ## args); \
 		exit(exitcode); \
 	} while (0)
 
@@ -479,7 +501,8 @@ struct dns_pdu {
 
 	size_t answers_section_len;
 	struct dns_sub_section **answers_section;
-	char *answers_section_ptr;
+	const char *answers_section_ptr;
+	char *answer_data;
 
 	size_t authority_section_len;
 	struct dns_sub_section **authority_section;
@@ -632,11 +655,18 @@ struct cache_data {
 	 char *key;
 	 size_t key_len;
 
+	 /* this union should never be larger
+	  * as sizeof(void *). Every data element
+	  * smaller or equal to 8 byte (we assume
+	  * x86_64) can be added to the union. */
 	 union {
 		void *priv_data;
 		struct in_addr v4addr;
-		struct in6_addr v6addr;
 	 };
+
+	 /* data of encoded (tranmitted) data,
+	  * e.g. 4 byte for an A record */
+	 int rdlength;
 };
 
 #define cache_data_priv(p) (p->priv_data)
@@ -670,8 +700,8 @@ extern int32_t average_value(struct average *);
 extern unsigned long long xstrtoull(const char *);
 extern void xfstat(int, struct stat *, const char *);
 extern void xsetsockopt(int, int, int, const void *, socklen_t, const char *);
-extern void x_err_sys(const char *, int, const char *, ...);
-extern void x_err_ret(const char *, int, const char *, ...);
+extern void x_err_sys(int, const char *, int, const char *, ...);
+extern void x_err_ret(int, const char *, int, const char *, ...);
 extern void msg(const char *, ...);
 extern double tv_to_sec(struct timeval *);
 extern int subtime(struct timeval *, struct timeval *, struct timeval *);
@@ -728,7 +758,6 @@ extern struct dns_pdu *alloc_dns_pdu(void);
 extern int get8(const char *, size_t, size_t, uint8_t *);
 extern int get16(const char *, size_t, size_t, uint16_t *);
 extern int getint32_t(const char *, size_t, size_t, int32_t *);
-extern int create_answer_pdu_from_cd(struct ctx *, struct dns_journey *, struct cache_data *);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
@@ -769,10 +798,21 @@ extern int cache_get(struct ctx *, uint16_t, uint16_t, char *, size_t, struct ca
 /* zone-parser.c */
 extern int parse_zonefiles(struct ctx *);
 
+/* type.c */
+extern unsigned type_opts_to_index(uint16_t);
+extern int str_record_type(const char *, int);
+extern const char *type_999_generic_text(void);
+extern const char *type_to_str(uint16_t);
+extern int is_valid_type(uint16_t);
+extern const char *class_to_str(uint16_t);
+extern int is_valid_class(uint16_t);
+
+
 /* type-001-a.c */
 extern const char *type_001_a_text(void);
 extern struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
 extern void type_001_a_free_cache_data(struct cache_data *);
+extern int type_001_a_create_sub_section(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
 
 /* type-015-mx.c */
 extern const char *type_015_mx_text(void);
@@ -793,17 +833,12 @@ extern int type_041_opt_parse(struct ctx *, struct dns_pdu *, struct dns_sub_sec
 extern int type_041_opt_construct_option(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
 extern int type_041_opt_available(struct dns_pdu *);
 
-/* type-generic.c
- * this methods are called if no type function
- * is registered - it serves as a catch all function */
-extern const char *type_999_generic_text(void);
+/* type-999-generic.c */
 extern int type_999_generic_parse(struct ctx *, struct dns_pdu *,struct dns_sub_section *, const char *, int);
 extern int type_999_generic_destruct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int, int);
 extern int type_999_generic_construct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
 extern void type_999_generic_free(struct ctx *, struct dns_sub_section *);
 extern int type_999_generic_available(struct dns_pdu *);
-extern unsigned type_opts_to_index(uint16_t);
-extern int str_record_type(const char *, int);
 extern struct cache_data *type_999_generic_zone_parser_to_cache_data(struct ctx *, char *);
 extern void type_999_generic_free_cache_data(struct cache_data *);
 extern int type_999_generic_cache_cmp(const struct cache_data *, const struct cache_data *);
@@ -839,6 +874,9 @@ struct type_fn_table {
 	/* parse the zone file entry and returns a blob, suitable to
 	 * transmission */
 	struct cache_data *(*zone_parser_to_cache_data)(struct ctx *, char *);
+
+	/* create from a given cache data entry a dns sub section */
+	int (*create_sub_section)(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
 
 	/* some types allocate dynamic memory for their data. The rule
 	 * is that types which are larger then 8 byte MUST dynamically

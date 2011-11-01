@@ -94,12 +94,15 @@ off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
 		return -2;
 	}
 
-	for (;;) {
+	while (1) {
+
 		const char *const start = name;
+
 		if (table && (ref = dnslabel_table_get_pos(table, name)) >= 0) {
 			APPEND16(ref | 0xc000);
 			return j;
 		}
+
 		name = strchr(name, '.');
 		if (!name) {
 			const unsigned int label_len = end - start;

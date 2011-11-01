@@ -43,8 +43,6 @@ int parse_rc_file(struct ctx *ctx)
 {
 	int ret;
 
-	msg("parse configuration file");
-
 	ret = open_rc_file(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILOPT, "Cannot open a configuration file");
@@ -101,7 +99,7 @@ void rc_set_port(char *port)
 	if (val < 0 || val > 65535)
 		err_msg_die(EXIT_FAILCONF, "port %d is not valid: range: 0 - 65535");
 
-	msg("listening port to %s", port);
+	msg("configure listening port to %s", port);
 
 	/* per default the port is set, we
 	 * must free the memory first */

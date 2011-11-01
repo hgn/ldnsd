@@ -107,7 +107,7 @@ int cache_memory_get(struct ctx *ctx,  uint16_t type, uint16_t class,
 	for (ele = list_head(data_list); ele != NULL; ele = list_next(ele)) {
 		*cd = list_data(ele);
 		ret = cache_data_key_cmp((const void *)*cd, (const void *)tmp_cd);
-		if (ret == SUCCESS) { /* found entry */
+		if (ret == 1) { /* found entry */
 			gret = SUCCESS;
 			goto out;
 		}

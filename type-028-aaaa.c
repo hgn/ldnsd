@@ -92,6 +92,10 @@ struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *ctx, char
 	if (ret <= 0)
 		err_msg_die(EXIT_FAILCONF, "malformed ipv6 string: \"%s\"", ip_str);
 
+	if (IN6_IS_ADDR_UNSPECIFIED(&cd_aaaa->addr))
+		err_msg_die(EXIT_FAILCONF, "unspecific ipv6 address not "
+				" allowed: \"%s\"", ip_str);
+
         pr_debug("AAAA record: ttl: %d hostname: %s ipv6: %s", timeval, host_str, ip_str);
 
 	return cache_data_create_private(DNS_TYPE_AAAA, DNS_CLASS_INET,

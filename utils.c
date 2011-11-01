@@ -1,20 +1,20 @@
 /*
-** Copyright (C) 2010,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
-**
-** This program is free software; you can redistribute it and/or modify
-** it under the terms of the GNU General Public License as published by
-** the Free Software Foundation; either version 2 of the License, or
-** (at your option) any later version.
-**
-** This program is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License
-** along with this program; if not, write to the Free Software
-** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
+ ** Copyright (C) 2010,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with this program; if not, write to the Free Software
+ ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
 
 #include "ldnsd.h"
 
@@ -92,7 +92,8 @@ double tv_to_sec(struct timeval *tv)
 
 
 /* 1 if qual, 0 otherwise */
-int ipv6_prefix_equal(struct in6_addr *a1, struct in6_addr *a2, unsigned int prefixlen)
+int ipv6_prefix_equal(struct in6_addr *a1, struct in6_addr *a2,
+		unsigned int prefixlen)
 {
 	unsigned pdw, pbi;
 
@@ -177,11 +178,13 @@ void msg(const char *format, ...)
 }
 
 
-static void err_doit(int sys_error, const char *file,
+static void err_doit(int we, int sys_error, const char *file,
 		const int line_no, const char *fmt, va_list ap)
 {
 	int errno_save;
 	char buf[MAXERRMSG];
+	const char *prefix;
+	struct timeval tv;
 
 	errno_save = errno;
 
@@ -192,29 +195,43 @@ static void err_doit(int sys_error, const char *file,
 				strerror(errno_save));
 	}
 
-	fprintf(stderr, "ERROR [%s:%d]: %s\n", file, line_no, buf);
+	switch (we) {
+	case MSG_ERROR:
+		prefix = "ERROR";
+		break;
+	case MSG_WARNING:
+		prefix = "WARNING";
+		break;
+	default:
+		BUG();
+		break;
+	}
+
+	gettimeofday(&tv, NULL);
+	fprintf(stderr, "[%ld.%06ld] %s [%s:%d]: %s\n",
+			tv.tv_sec, tv.tv_usec, prefix, file, line_no, buf);
 	fflush(NULL);
 
 	errno = errno_save;
 }
 
 
-void x_err_ret(const char *file, int line_no, const char *fmt, ...)
+void x_err_ret(int we, const char *file, int line_no, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	err_doit(0, file, line_no, fmt, ap);
+	err_doit(we, 0, file, line_no, fmt, ap);
 	va_end(ap);
 }
 
 
-void x_err_sys(const char *file, int line_no, const char *fmt, ...)
+void x_err_sys(int we, const char *file, int line_no, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	err_doit(1, file, line_no, fmt, ap);
+	err_doit(we, 1, file, line_no, fmt, ap);
 	va_end(ap);
 }
 
@@ -259,7 +276,7 @@ void xgetaddrinfo(const char *node, const char *service,
 	ret = getaddrinfo(node, service, hints, res);
 	if (unlikely(ret != 0)) {
 		err_msg_die(EXIT_FAILNET, "Call to getaddrinfo() failed: %s!\n",
-				(ret == EAI_SYSTEM) ?  strerror(errno) : gai_strerror(ret));
+		(ret == EAI_SYSTEM) ?  strerror(errno) : gai_strerror(ret));
 	}
 
 	return;
@@ -299,9 +316,8 @@ unsigned long long xstrtoull(const char *str)
 		err_sys_die(EXIT_FAILURE, "strtoll failure");
 	}
 
-	if (endptr == str) {
+	if (endptr == str)
 		err_msg_die(EXIT_FAILURE, "No digits found in commandline");
-	}
 
 	return val;
 }
@@ -374,66 +390,67 @@ int ip_valid_addr(int family, const char *str)
 
 char *eat_whitespaces(const char *p)
 {
-        char *ptr = (char *)p;
+	char *ptr = (char *)p;
 
-        while (1) {
-                /* isspace also test for \n, which is not allowed */
-                if (*ptr != ' ' && *ptr != '\t')
-                        return ptr;
-                ptr++;
-        }
+	while (1) {
+		/* isspace also test for \n, which is not allowed */
+		if (*ptr != ' ' && *ptr != '\t')
+			return ptr;
+		ptr++;
+	}
 }
 
 
 int time_modifier(char c)
 {
-        if (c == 's')
-                return 1;
-        if (c == 'm')
-                return 60;
-        if (c == 'h')
-                return 60 * 60;
-        if (c == 'd')
-                return 60 * 60 * 24;
-        if (c == 'w')
-                return 60 * 60 * 24 * 7;
+	if (c == 's')
+		return 1;
+	if (c == 'm')
+		return 60;
+	if (c == 'h')
+		return 60 * 60;
+	if (c == 'd')
+		return 60 * 60 * 24;
+	if (c == 'w')
+		return 60 * 60 * 24 * 7;
 
-        return -1;
+	return -1;
 }
 
 
-char *parse_ttl(char *str, int *timeval)
+char *parse_ttl(char *str, int *rtt)
 {
-        int ret, n, timemod = INT_MAX;
-        char field[16];
+	int ret, n, timemod = INT_MAX;
+	char field[16];
 
-        str++;
+	str++;
 
-        /* parse identifier */
-        ret = sscanf(str, "%15[^ \t]%n", field, &n);
-        if (ret != 1)
-                err_msg_die(EXIT_FAILCONF, "malformed time string %s", str);
+	/* parse identifier */
+	ret = sscanf(str, "%15[^ \t]%n", field, &n);
+	if (ret != 1)
+		err_msg_die(EXIT_FAILCONF, "malformed time string %s", str);
 
-        if (n > 1)
-                timemod = time_modifier(field[n - 1]);
+	if (n > 1)
+		timemod = time_modifier(field[n - 1]);
 
-        if (timemod < 0 || timemod == INT_MAX) {
-                timemod = 1;
-        }
+	if (timemod < 0 || timemod == INT_MAX)
+		timemod = 1;
 
-        *timeval = atoi(field) * timemod;
+	*rtt = atoi(field) * timemod;
 
-	if (*timeval > TTL_MAX) {
-		err_msg("ttl of record to high (%d) set to %d", *timeval, DEFAULT_TTL);
-		*timeval = DEFAULT_TTL;
+	if (*rtt > TTL_MAX) {
+		err_msg("ttl of record to high (%d) set to %d",
+				*rtt, DEFAULT_TTL);
+		*rtt = DEFAULT_TTL;
 	}
 
-	if (*timeval < TTL_MIN) {
-		err_msg("ttl of record to low (%d) set to %d", *timeval, DEFAULT_TTL);
-		*timeval = DEFAULT_TTL;
+	if (*rtt < TTL_MIN) {
+		err_msg("ttl of record to low (%d) set to %d",
+				*rtt, DEFAULT_TTL);
+		*rtt = DEFAULT_TTL;
 	}
 
-        return eat_whitespaces(&str[n]);
+	return eat_whitespaces(&str[n]);
 }
 
 

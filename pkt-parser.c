@@ -113,6 +113,9 @@ void free_dns_journey(struct dns_journey *x)
 				free(dns_s);
 			}
 			free(x->p_req_dns_pdu->answers_section);
+
+			if (x->p_req_dns_pdu->answer_data)
+				xfree(x->p_req_dns_pdu->answer_data);
 		}
 
 		if (x->p_req_dns_pdu->authority) {
@@ -162,6 +165,9 @@ void free_dns_journey(struct dns_journey *x)
 				free(dns_s);
 			}
 			free(x->a_req_dns_pdu->answers_section);
+
+			if (x->a_req_dns_pdu->answer_data)
+				xfree(x->a_req_dns_pdu->answer_data);
 		}
 
 		if (x->a_req_dns_pdu->authority) {
@@ -207,6 +213,9 @@ void free_dns_journey(struct dns_journey *x)
 				xfree(dns_s);
 			}
 			xfree(x->p_res_dns_pdu->answers_section);
+
+			if (x->p_res_dns_pdu->answer_data)
+				xfree(x->p_res_dns_pdu->answer_data);
 		}
 
 		if (x->p_res_dns_pdu->authority) {
@@ -242,73 +251,6 @@ void free_dns_journey(struct dns_journey *x)
 		xfree(x->a_res_packet);
 
 	xfree(x); x = NULL;
-}
-
-/* convert the most common types to names */
-static const char *type_to_str(uint16_t type)
-{
-	switch (type) {
-		case DNS_TYPE_A:     return "A";
-		case DNS_TYPE_AAAA:  return "AAAA";
-		case DNS_TYPE_MX:    return "MX";
-		case DNS_TYPE_PTR:   return "PTR";
-		case DNS_TYPE_SOA:   return "SOA";
-		case DNS_TYPE_CNAME: return "CNAME";
-		case DNS_TYPE_NS:    return "NS";
-		case DNS_TYPE_TXT:   return "TXT";
-		case DNS_TYPE_OPT:   return "OPT";
-		default:         return "UNKNOWN";
-	};
-}
-
-
-static int is_valid_type(uint16_t type)
-{
-	switch (type) {
-	case DNS_TYPE_A: case DNS_TYPE_NS: case DNS_TYPE_MD: case DNS_TYPE_MF:
-	case DNS_TYPE_CNAME: case DNS_TYPE_SOA: case DNS_TYPE_MB: case DNS_TYPE_MG:
-	case DNS_TYPE_MR: case DNS_TYPE_NULL: case DNS_TYPE_WKS: case DNS_TYPE_PTR:
-	case DNS_TYPE_HINFO: case DNS_TYPE_MINFO: case DNS_TYPE_MX:
-	case DNS_TYPE_TXT: case DNS_TYPE_AAAA: case DNS_TYPE_AFSDB:
-	case DNS_TYPE_CERT: case DNS_TYPE_DHCID: case DNS_TYPE_DLV:
-	case DNS_TYPE_DNAME: case DNS_TYPE_DNSKEY: case DNS_TYPE_DS: case DNS_TYPE_HIP:
-	case DNS_TYPE_IPSECKEY: case DNS_TYPE_KEY: case DNS_TYPE_LOC:
-	case DNS_TYPE_NAPTR: case DNS_TYPE_NSEC: case DNS_TYPE_NSEC3:
-	case DNS_TYPE_NSEC3PARAM: case DNS_TYPE_RRSIG: case DNS_TYPE_SIG:
-	case DNS_TYPE_SPF: case DNS_TYPE_SRV: case DNS_TYPE_SSHFP: case DNS_TYPE_TA:
-	case DNS_TYPE_TKEY: case DNS_TYPE_TSIG: case DNS_TYPE_OPT:
-		return SUCCESS;
-		break;
-	default:
-		return FAILURE;
-
-	}
-	return FAILURE;
-}
-
-#define	CLASS_IN 1 /* INET */
-/* not supported */
-#if 0
-#define	CLASS_CS 2 /* CSNET */
-#define	CLASS_CH 3 /* CHAOS */
-#define	CLASS_HS 4 /* Hesiod */
-#endif
-
-static const char *class_to_str(uint16_t class)
-{
-	switch (class) {
-		case CLASS_IN: return "IN";
-		default:       return "UNKNOWN";
-	}
-}
-
-static int is_valid_class(uint16_t class)
-{
-	switch (class) {
-		case CLASS_IN: return SUCCESS;
-		default: return FAILURE;
-	};
-	return FAILURE;
 }
 
 
@@ -656,76 +598,6 @@ static unsigned parse_rr_section(struct ctx *ctx, struct dns_pdu *dr,
 
 	return i;
 }
-
-int create_answer_pdu_from_cd(struct ctx *ctx,
-		struct dns_journey *dnsj, struct cache_data *cd)
-{
-
-	assert(ctx);
-	assert(dnsj->p_res_dns_pdu);
-	assert(dnsj);
-	assert(cd);
-
-
-#if 0
-	dns_pdu = dnsj->p_res_dns_pdu;
-
-	/* FIXME */
-	dnsj->p_res_dns_pdu->answers = 1;
-	dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * 1);
-	dns_pdu->answers_section_len = 1;
-	dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
-
-	/* construct meta-data */
-	dns_pdu->answers_section[0]->name = xmalloc(cd->val_len);
-	memcpy(dns_pdu->answers_section[0]->name, cd->val, cd->val_len);
-	dns_pdu->answers_section[0]->type = cd->type;
-	dns_pdu->answers_section[0]->class = cd->class;
-
-	/* fixme: */
-	dns_pdu->answers_section[0]->ttl = 90000;
-
-	/* 4 -> IPv4 address */
-	dns_pdu->answers_section[0]->rdlength = 4;
-
-
-	/* construct data (which is later then copied directly */
-	/* FIXME: alloc packet everywhere, free everywhere */
-
-	dns_pdu->answers_section_ptr = xzalloc(16);
-	dns_pdu->answers_section_ptr[0] = 0xc0;
-	dns_pdu->answers_section_ptr[1] = 0x0c;
-
-	/* type */
-	dns_pdu->answers_section_ptr[2] = 0x00;
-	dns_pdu->answers_section_ptr[3] = 0x10;
-
-	/* class */
-	dns_pdu->answers_section_ptr[4] = 0x00;
-	dns_pdu->answers_section_ptr[5] = 0x01;
-
-	/* ttl */
-	dns_pdu->answers_section_ptr[6] = 0x00;
-	dns_pdu->answers_section_ptr[7] = 0x00;
-	dns_pdu->answers_section_ptr[8] = 0x0e;
-	dns_pdu->answers_section_ptr[9] = 0x10;
-
-	/* length */
-	dns_pdu->answers_section_ptr[10] = 0x00;
-	dns_pdu->answers_section_ptr[11] = 0x04;
-
-	/* data */
-	dns_pdu->answers_section_ptr[12] = 0x4e;
-	dns_pdu->answers_section_ptr[13] = 0x2f;
-	dns_pdu->answers_section_ptr[14] = 0xde;
-	dns_pdu->answers_section_ptr[15] = 0xd2;
-
-#endif
-
-
-	return SUCCESS;
-}
-
 
 
 /* parse_dns_packet parses a standard DNS packet and

@@ -36,8 +36,7 @@
 static const struct err_code_table {
 	const int code;
 	const char *str;
-} err_code_strings[] =
-{
+} err_code_strings[] = {
 	{ ERROR_CODE_NO_ERROR, "no error" },
 	{ ERROR_CODE_FILE,     "error in open file" },
 	{ ERROR_CODE_ARGUMENT, "error in argument to this function" },
@@ -53,7 +52,8 @@ static const struct err_code_table {
  * see RFC 592 and the manual pages for hosts(5), hostname(1),
  * resolver(3), resolver(5), hostname(7) */
 int hosts_info_get_by_name(const char *filename,
-		const char *hostname, size_t hostname_len, struct hosts_info **res)
+		const char *hostname, size_t hostname_len,
+		struct hosts_info **res)
 {
 	FILE *file;
 	int i;
@@ -120,7 +120,8 @@ int hosts_info_get_by_name(const char *filename,
 
 			xgetaddrinfo(addr_name, NULL, &hosthints, &hostres);
 			if (hostres != NULL) {
-				memcpy(&hi->addr, &hostres->ai_addr, hostres->ai_addrlen);
+				memcpy(&hi->addr, &hostres->ai_addr,
+						hostres->ai_addrlen);
 				hi->addr_len = hostres->ai_addrlen;
 				hi->family = hostres->ai_family;
 			}
@@ -137,9 +138,8 @@ int hosts_info_get_by_name(const char *filename,
 		while (((cp = strtok_r(NULL, white_spaces, &buf)) != NULL) &&
 				alias_index < MAX_ALIASES) {
 
-			if (!strcasecmp(cp, hostname)) {
+			if (!strcasecmp(cp, hostname))
 				alias_array[alias_index++] = cp;
-			}
 		}
 
 		for (i = 0; i < alias_index; i++) {
@@ -160,7 +160,8 @@ int hosts_info_get_by_name(const char *filename,
 
 			xgetaddrinfo(addr_name, NULL, &hosthints, &hostres);
 			if (hostres != NULL) {
-				memcpy(&hi->addr, &hostres->ai_addr, hostres->ai_addrlen);
+				memcpy(&hi->addr, &hostres->ai_addr,
+						hostres->ai_addrlen);
 				hi->addr_len = hostres->ai_addrlen;
 				hi->family = hostres->ai_family;
 			}
@@ -186,7 +187,8 @@ int hosts_info_get_by_name(const char *filename,
 
 
 int hosts_info_get_by_address(const char *filename,
-	struct sockaddr_storage *address, socklen_t address_len, struct hosts_info **res)
+		struct sockaddr_storage *address,
+		socklen_t address_len, struct hosts_info **res)
 {
 	(void) filename;
 	(void) address;
@@ -208,14 +210,16 @@ void hosts_info_free(struct hosts_info *hi)
 
 	while (hi_tmp != NULL) {
 
-		if (hi_tmp->name) free(hi_tmp->name);
-		if (hi_tmp->addr_str) free(hi_tmp->addr_str);
+		if (hi_tmp->name)
+			free(hi_tmp->name);
+
+		if (hi_tmp->addr_str)
+			free(hi_tmp->addr_str);
 
 		hi_prev = hi_tmp;
-
 		hi_tmp = hi_tmp->next;
-
-		free(hi_prev); hi_prev = NULL;
+		free(hi_prev);
+		hi_prev = NULL;
 	}
 }
 
@@ -229,6 +233,3 @@ const char *hosts_info_strerror(int errcode)
 
 	return err_code_strings[errcode].str;
 }
-
-
-/* vim: set tw=78 ts=4 sw=4 sts=4 ff=unix noet: */

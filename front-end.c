@@ -138,7 +138,8 @@ static void adns_trigger_resolv(const struct ctx *ctx)
 	/* iterate over the list and send all dns
 	 * request who are in the state of ACTIVE_DNS_REQUEST_NEW
 	 * and ignore request in state ACTIVE_DNS_REQUEST_IN_FLIGHT */
-	ret = list_for_each(ctx->waiting_request_list, process_all_dnsj_reqeusts, (void *)ctx);
+	ret = list_for_each(ctx->waiting_request_list,
+			process_all_dnsj_reqeusts, (void *)ctx);
 	if (ret != SUCCESS) {
 		err_msg("failure in iterating over active requst list");
 		return;
@@ -170,7 +171,8 @@ static int internal_build_dns_request(struct ctx *ctx, struct dns_journey *dnsj)
 	request->id = get_random_id();
 
 	rlen = pkt_construct_dns_query(ctx, dnsj, req_name, strlen(req_name),
-			request->id, req_type, req_class, pdu, MAX_REQUEST_PDU_LEN);
+			request->id, req_type, req_class, pdu,
+			MAX_REQUEST_PDU_LEN);
 
 	pr_debug("build active dns request packet of size %d, id: %u",
 			rlen, request->id);
@@ -189,7 +191,7 @@ static int search_cache(struct ctx *ctx,
 {
 	int ret;
 
-	pr_debug("search cache");
+	pr_debug("search cache (type: %d)", dnsj->p_req_type);
 
 	ret = cache_get(ctx, dnsj->p_req_type, dnsj->p_req_class,
 			dnsj->p_req_name, strlen(dnsj->p_req_name) + 1, cd);
@@ -216,7 +218,11 @@ int active_dns_request_set(struct ctx *ctx,
 	assert(dnsj);
 	assert(cb);
 
-	/* 1. search local cache first */
+	/* 1. search local cache first.
+	 *
+	 * FIXME: this COULD return a list of
+	 * struct cache_data. All returned cache data
+	 * is added to the generated answer packet */
 	ret = search_cache(ctx, dnsj, &cd);
 	if (ret == SUCCESS) {
 
@@ -227,7 +233,27 @@ int active_dns_request_set(struct ctx *ctx,
 
 		dnsj->p_res_dns_pdu = alloc_dns_pdu();
 
-		ret = create_answer_pdu_from_cd(ctx, dnsj, cd);
+		/* FIXME */
+		dnsj->p_res_dns_pdu->answers = 1;
+		dnsj->p_res_dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * 1);
+		dnsj->p_res_dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
+
+		/* a pointer to the entire answer section */
+		dnsj->p_res_dns_pdu->answers_section_len = 16;
+		dnsj->p_res_dns_pdu->answer_data = xzalloc(16);
+
+		dnsj->p_res_dns_pdu->answers_section_ptr = dnsj->p_res_dns_pdu->answer_data;
+
+		BUG_ON(!type_fn_table[type_opts_to_index(cd->type)].create_sub_section);
+
+		ret = type_fn_table[type_opts_to_index(cd->type)].create_sub_section(ctx, cd,
+				dnsj->p_res_dns_pdu->answers_section[0],
+				dnsj->p_res_dns_pdu->answers_section_ptr);
+		if (ret != SUCCESS) {
+			free_dns_journey(dnsj);
+			err_msg("Cannot create sub section for answer from cache_data");
+			return FAILURE;
+		}
 
 		(*cb)(dnsj);
 
@@ -237,6 +263,8 @@ int active_dns_request_set(struct ctx *ctx,
 
 		return SUCCESS;
 	}
+
+	pr_debug("not found in cache");
 
 
 	/* 2. ok we didn't found anything in the
@@ -300,8 +328,10 @@ static int adns_request_match(const void *a, const void *b)
 
 int adns_request_init(struct ctx *ctx)
 {
-	ctx->waiting_request_list  = list_create(adns_request_match, free_dns_journey_list_entry);
-	ctx->inflight_request_list = list_create(adns_request_match, free_dns_journey_list_entry);
+	ctx->waiting_request_list  = list_create(adns_request_match,
+			free_dns_journey_list_entry);
+	ctx->inflight_request_list = list_create(adns_request_match,
+			free_dns_journey_list_entry);
 	return SUCCESS;
 }
 
@@ -318,9 +348,10 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 	uint16_t q_class, r_class;
 
 	if (dns_pdu_r->questions != 1)
-		err_msg_die(EXIT_FAILINT, "internal error, should never happended"
-				", the question section contains %d elements; should be %d",
-				dns_pdu_r->questions, 1);
+		err_msg_die(EXIT_FAILINT,
+			"internal error, should never happended"
+			", the question section contains %d elements; "
+			"should be %d", dns_pdu_r->questions, 1);
 
 	/* check if type, class and name matches */
 	for (i = 0; i < dns_pdu_r->questions; i++) {
@@ -366,9 +397,11 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
 			 * we had already found the right element - we know it is there
 			 * and where it is. This must be fixed  --HGN */
 			dns_j_match = dns_j;
-			ret = list_remove(dns_j->ctx->inflight_request_list, (void **)&dns_j_match);
+			ret = list_remove(dns_j->ctx->inflight_request_list,
+					(void **)&dns_j_match);
 			if (ret != SUCCESS || dns_j_match != dns_j)
-				err_msg_die(EXIT_FAILINT, "failure in list remove of inflight list");
+				err_msg_die(EXIT_FAILINT,
+						"failure in list remove of inflight list");
 
 			/* last but not least we do some statistics */
 			dns_j->ctx->succ_req_res++;
@@ -400,8 +433,9 @@ static int search_adns_requests(void *req, void *dns_pdu_tmp)
  *   2) if not, we silently discard the packet because we never
  *      request that information or we assume that this packet is a attack! ;-)
  */
-static void process_dns_response(struct ctx *ctx, const char *packet, const size_t len,
-		const struct sockaddr_storage *ss, socklen_t ss_len)
+static void process_dns_response(struct ctx *ctx, const char *packet,
+		const size_t len, const struct sockaddr_storage *ss,
+		socklen_t ss_len)
 {
 	int ret;
 	struct dns_pdu *dns_pdu;

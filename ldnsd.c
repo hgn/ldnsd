@@ -23,6 +23,11 @@
 #define	DEFAULT_TIME_SELECT_RE_THRESHOLD 1000
 
 
+/* initialized global seed for random(). Returns
+ * 0 if the random pool can be filled by /dev/urandom
+ * or -1 if time() and getpid() are used. A good PRNG
+ * requires a good seed. A good PRNG is required for
+ * the pseudo-source-port-selector. */
 static int initiate_seed(void)
 {
 	ssize_t ret;
@@ -31,12 +36,14 @@ static int initiate_seed(void)
 
 	/* set randon pool seed */
 	rand_fd = open(RANDPOOLSRC, O_RDONLY);
-	if (rand_fd < 0)
-		err_sys_die(EXIT_FAILINT,
-				"Cannot open random pool file %s", RANDPOOLSRC);
+	if (rand_fd < 0) {
+		wrn_msg("Cannot open random pool file %s", RANDPOOLSRC);
+		srandom(time(NULL) & getpid());
+		return -1;
+	}
 
-	ret = read(rand_fd, &randpool, sizeof(uint32_t));
-	if (ret != sizeof(uint32_t)) {
+	ret = read(rand_fd, &randpool, sizeof(randpool));
+	if (ret != sizeof(randpool)) {
 		srandom(time(NULL) & getpid());
 		close(rand_fd);
 		return -1;
@@ -92,7 +99,7 @@ static struct ctx *ctx_init(void)
 
 	struct ctx *ctx = xzalloc(sizeof(struct ctx));
 
-	ctx->ns_time_select_threshold = DEFAULT_NS_TIME_SELECT_THRESHOLD;
+	ctx->ns_time_select_threshold    = DEFAULT_NS_TIME_SELECT_THRESHOLD;
 	ctx->ns_time_select_re_threshold = DEFAULT_TIME_SELECT_RE_THRESHOLD;
 
 	ret = init_zone_filename_list(ctx);
@@ -100,7 +107,6 @@ static struct ctx *ctx_init(void)
 		return NULL;
 
 	ctx->mode = DEFAULT_MODE;
-
 	ctx->cache_backend = CACHE_BACKEND_MEMORY;
 
 	return ctx;
@@ -118,19 +124,22 @@ int main(int ac, char **av)
 	int ret, flags = 0;
 	struct ctx *ctx;
 
-	fprintf(stdout, "ldnsd - a fast and scalable DNS server (C) 2009-2011\n");
+	pr_debug("ldnsd - a fast and scalable DNS server (C) 2009-2011");
 
+	pr_debug("initialize random number generator seed");
 	ret = initiate_seed();
 	if (ret == FAILURE) {
 		err_msg("PRNG cannot be initialized satisfying (fallback to time(3) and getpid(3))");
 	}
 
+	pr_debug("initialize server context");
 	ctx = ctx_init();
 	if (!ctx)
 		err_msg_die(EXIT_FAILMISC, "Cannot initialize context");
 
 	ctx->ev_hndl = ev_init_hdntl();
 
+	pr_debug("parse command line options");
 	ret = parse_cli_options(ctx, &ctx->cli_opts, ac, av);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILOPT, "failure in commandline argument");
@@ -140,6 +149,7 @@ int main(int ac, char **av)
 		 * file, the functionality is simple enough to run without
 		 * any arguments, if things change we can enfore a configuration
 		 * file --HGN */
+		pr_debug("parse configuration file");
 		ret = parse_rc_file(ctx);
 		if (ret != SUCCESS)
 			err_msg_die(EXIT_FAILURE, "Can't parse configuration file");
@@ -152,24 +162,29 @@ int main(int ac, char **av)
 	ctx->buf_max = ctx->cli_opts.edns0_max;
 	assert(ctx->buf_max >= 512);
 
+	pr_debug("initialize front-end side");
 	ret = init_server_side(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize server side");
 
+	pr_debug("initialize back-end side");
 	ret = init_client_side(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize client side");
 
+	pr_debug("initialize cache");
 	ret = cache_init(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize cache");
 
+	pr_debug("parse zone files");
 	ret = parse_zonefiles(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "Failed to parse zone files");
 
 
 	/* main loop, normaly never exited */
+	pr_debug("preliminary work successfull - now switch info worker mode");
 	ev_loop(ctx->ev_hndl, flags);
 
 	fini_server_socket(ctx->client_server_socket);

@@ -39,25 +39,25 @@ static int sanitze_line(char *line)
 
 static int split_and_process(struct ctx *ctx, char *line)
 {
-        int ret, n, rt;
-        char field[16];
+	int ret, n, rt;
+	char field[16];
 	struct cache_data *cd;
 
-        /* parse identifier */
-        ret = sscanf(line, "%15[^ \t]%n", field, &n);
-        if (ret != 1) {
-                err_msg_die(EXIT_FAILCONF, "malformed zone conf %s", line);
+	/* parse identifier */
+	ret = sscanf(line, "%15[^ \t]%n", field, &n);
+	if (ret != 1) {
+		err_msg_die(EXIT_FAILCONF, "malformed zone conf %s", line);
 		return FAILURE;
-        }
+	}
 
-        rt = str_record_type(field, n);
-        if (rt < 0) {
-                err_msg_die(EXIT_FAILCONF, "record %s not supported", field);
+	rt = str_record_type(field, n);
+	if (rt < 0) {
+		err_msg_die(EXIT_FAILCONF, "record %s not supported", field);
 		return FAILURE;
-        }
+	}
 
-        line += n; /* point to the first whitespace */
-        line = eat_whitespaces(line);
+	line += n; /* point to the first whitespace */
+	line = eat_whitespaces(line);
 
 	if (!type_fn_table[type_opts_to_index(rt)].zone_parser_to_cache_data) {
 		err_msg("record type has no registered parser - implementation error");
@@ -66,7 +66,7 @@ static int split_and_process(struct ctx *ctx, char *line)
 
 	cd = type_fn_table[type_opts_to_index(rt)].zone_parser_to_cache_data(ctx, line);
 	if (!cd) {
-                err_msg("not supported (yet)");
+		err_msg("not supported (yet)");
 		goto err;
 	}
 
@@ -82,7 +82,7 @@ static int split_and_process(struct ctx *ctx, char *line)
 err_mem:
 	cache_data_free(cd);
 err:
-        return FAILURE;
+	return FAILURE;
 }
 
 
@@ -112,7 +112,11 @@ int parse_zonefiles(struct ctx *ctx)
 			if (ret != SUCCESS)
 				continue;
 
-			split_and_process(ctx, line);
+			ret = split_and_process(ctx, line);
+			if (ret != SUCCESS) {
+				wrn_msg("ignore zonefile entry \"%s\" - not critical",
+						line);
+			}
 		}
 
 		free(line);
