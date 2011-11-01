@@ -25,15 +25,16 @@
  * Additionaly you must adjust type_opts_to_index()
  * to recognize the new option. Thats all */
 struct type_fn_table type_fn_table[] = {
-	{
+	{ /* A Record */
 		.text                      = type_001_a_text,
 		.parse                     = type_999_generic_parse,
 		.construct                 = type_999_generic_construct,
 		.destruct                  = type_999_generic_destruct,
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_001_a_zone_parser_to_cache_data,
-		.free_cache_priv_data           = type_001_a_free_cache_data,
-		.cache_cmp                 = type_999_generic_cache_cmp
+		.free_cache_priv_data      = type_001_a_free_cache_data,
+		.cache_cmp                 = type_999_generic_cache_cmp,
+		.create_sub_section        = type_001_a_create_sub_section
 	},
 	{ /* MX Records */
 		.text                      = type_015_mx_text,

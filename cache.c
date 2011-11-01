@@ -59,6 +59,7 @@ struct cache_data *cache_data_create_private(uint16_t type, uint16_t class,
 int cache_data_key_cmp(const void *a, const void *b)
 {
 	const struct cache_data *aa, *bb;
+	size_t cmp_len;
 
 	assert(a);
 	assert(b);
@@ -68,10 +69,19 @@ int cache_data_key_cmp(const void *a, const void *b)
 	if (aa->type != bb->type || aa->class != bb->class)
 		return 0;
 
-	if (aa->key_len != bb->key_len)
-		return 0;
+	/* ignore the trailing dot, if present in
+	 * query or database. Later this should be
+	 * adjusted depending on the final dot (FQDN)
+	 * for queries */
+	if (aa->key[aa->key_len - 2] == '.')
+		cmp_len = aa->key_len - 3;
+	else {
+		cmp_len = aa->key_len;
+		if (aa->key_len != bb->key_len)
+			return 0;
+	}
 
-	if (memcmp(aa->key, bb->key, aa->key_len))
+	if (memcmp(aa->key, bb->key, cmp_len))
 		return 0;
 
 	return 1;

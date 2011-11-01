@@ -113,6 +113,9 @@ void free_dns_journey(struct dns_journey *x)
 				free(dns_s);
 			}
 			free(x->p_req_dns_pdu->answers_section);
+
+			if (x->p_req_dns_pdu->answer_data)
+				xfree(x->p_req_dns_pdu->answer_data);
 		}
 
 		if (x->p_req_dns_pdu->authority) {
@@ -162,6 +165,9 @@ void free_dns_journey(struct dns_journey *x)
 				free(dns_s);
 			}
 			free(x->a_req_dns_pdu->answers_section);
+
+			if (x->a_req_dns_pdu->answer_data)
+				xfree(x->a_req_dns_pdu->answer_data);
 		}
 
 		if (x->a_req_dns_pdu->authority) {
@@ -207,6 +213,9 @@ void free_dns_journey(struct dns_journey *x)
 				xfree(dns_s);
 			}
 			xfree(x->p_res_dns_pdu->answers_section);
+
+			if (x->p_res_dns_pdu->answer_data)
+				xfree(x->p_res_dns_pdu->answer_data);
 		}
 
 		if (x->p_res_dns_pdu->authority) {
@@ -589,76 +598,6 @@ static unsigned parse_rr_section(struct ctx *ctx, struct dns_pdu *dr,
 
 	return i;
 }
-
-int create_answer_pdu_from_cd(struct ctx *ctx,
-		struct dns_journey *dnsj, struct cache_data *cd)
-{
-
-	assert(ctx);
-	assert(dnsj->p_res_dns_pdu);
-	assert(dnsj);
-	assert(cd);
-
-
-#if 0
-	dns_pdu = dnsj->p_res_dns_pdu;
-
-	/* FIXME */
-	dnsj->p_res_dns_pdu->answers = 1;
-	dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * 1);
-	dns_pdu->answers_section_len = 1;
-	dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
-
-	/* construct meta-data */
-	dns_pdu->answers_section[0]->name = xmalloc(cd->val_len);
-	memcpy(dns_pdu->answers_section[0]->name, cd->val, cd->val_len);
-	dns_pdu->answers_section[0]->type = cd->type;
-	dns_pdu->answers_section[0]->class = cd->class;
-
-	/* fixme: */
-	dns_pdu->answers_section[0]->ttl = 90000;
-
-	/* 4 -> IPv4 address */
-	dns_pdu->answers_section[0]->rdlength = 4;
-
-
-	/* construct data (which is later then copied directly */
-	/* FIXME: alloc packet everywhere, free everywhere */
-
-	dns_pdu->answers_section_ptr = xzalloc(16);
-	dns_pdu->answers_section_ptr[0] = 0xc0;
-	dns_pdu->answers_section_ptr[1] = 0x0c;
-
-	/* type */
-	dns_pdu->answers_section_ptr[2] = 0x00;
-	dns_pdu->answers_section_ptr[3] = 0x10;
-
-	/* class */
-	dns_pdu->answers_section_ptr[4] = 0x00;
-	dns_pdu->answers_section_ptr[5] = 0x01;
-
-	/* ttl */
-	dns_pdu->answers_section_ptr[6] = 0x00;
-	dns_pdu->answers_section_ptr[7] = 0x00;
-	dns_pdu->answers_section_ptr[8] = 0x0e;
-	dns_pdu->answers_section_ptr[9] = 0x10;
-
-	/* length */
-	dns_pdu->answers_section_ptr[10] = 0x00;
-	dns_pdu->answers_section_ptr[11] = 0x04;
-
-	/* data */
-	dns_pdu->answers_section_ptr[12] = 0x4e;
-	dns_pdu->answers_section_ptr[13] = 0x2f;
-	dns_pdu->answers_section_ptr[14] = 0xde;
-	dns_pdu->answers_section_ptr[15] = 0xd2;
-
-#endif
-
-
-	return SUCCESS;
-}
-
 
 
 /* parse_dns_packet parses a standard DNS packet and

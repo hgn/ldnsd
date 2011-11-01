@@ -191,7 +191,7 @@ static int search_cache(struct ctx *ctx,
 {
 	int ret;
 
-	pr_debug("search cache");
+	pr_debug("search cache (type: %d)", dnsj->p_req_type);
 
 	ret = cache_get(ctx, dnsj->p_req_type, dnsj->p_req_class,
 			dnsj->p_req_name, strlen(dnsj->p_req_name) + 1, cd);
@@ -218,7 +218,11 @@ int active_dns_request_set(struct ctx *ctx,
 	assert(dnsj);
 	assert(cb);
 
-	/* 1. search local cache first */
+	/* 1. search local cache first.
+	 *
+	 * FIXME: this COULD return a list of
+	 * struct cache_data. All returned cache data
+	 * is added to the generated answer packet */
 	ret = search_cache(ctx, dnsj, &cd);
 	if (ret == SUCCESS) {
 
@@ -229,7 +233,27 @@ int active_dns_request_set(struct ctx *ctx,
 
 		dnsj->p_res_dns_pdu = alloc_dns_pdu();
 
-		ret = create_answer_pdu_from_cd(ctx, dnsj, cd);
+		/* FIXME */
+		dnsj->p_res_dns_pdu->answers = 1;
+		dnsj->p_res_dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * 1);
+		dnsj->p_res_dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
+
+		/* a pointer to the entire answer section */
+		dnsj->p_res_dns_pdu->answers_section_len = 16;
+		dnsj->p_res_dns_pdu->answer_data = xzalloc(16);
+
+		dnsj->p_res_dns_pdu->answers_section_ptr = dnsj->p_res_dns_pdu->answer_data;
+
+		BUG_ON(!type_fn_table[type_opts_to_index(cd->type)].create_sub_section);
+
+		ret = type_fn_table[type_opts_to_index(cd->type)].create_sub_section(ctx, cd,
+				dnsj->p_res_dns_pdu->answers_section[0],
+				dnsj->p_res_dns_pdu->answers_section_ptr);
+		if (ret != SUCCESS) {
+			free_dns_journey(dnsj);
+			err_msg("Cannot create sub section for answer from cache_data");
+			return FAILURE;
+		}
 
 		(*cb)(dnsj);
 
@@ -239,6 +263,8 @@ int active_dns_request_set(struct ctx *ctx,
 
 		return SUCCESS;
 	}
+
+	pr_debug("not found in cache");
 
 
 	/* 2. ok we didn't found anything in the

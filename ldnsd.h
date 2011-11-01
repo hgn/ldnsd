@@ -501,7 +501,8 @@ struct dns_pdu {
 
 	size_t answers_section_len;
 	struct dns_sub_section **answers_section;
-	char *answers_section_ptr;
+	const char *answers_section_ptr;
+	char *answer_data;
 
 	size_t authority_section_len;
 	struct dns_sub_section **authority_section;
@@ -662,6 +663,10 @@ struct cache_data {
 		void *priv_data;
 		struct in_addr v4addr;
 	 };
+
+	 /* data of encoded (tranmitted) data,
+	  * e.g. 4 byte for an A record */
+	 int rdlength;
 };
 
 #define cache_data_priv(p) (p->priv_data)
@@ -753,7 +758,6 @@ extern struct dns_pdu *alloc_dns_pdu(void);
 extern int get8(const char *, size_t, size_t, uint8_t *);
 extern int get16(const char *, size_t, size_t, uint16_t *);
 extern int getint32_t(const char *, size_t, size_t, int32_t *);
-extern int create_answer_pdu_from_cd(struct ctx *, struct dns_journey *, struct cache_data *);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
@@ -808,6 +812,7 @@ extern int is_valid_class(uint16_t);
 extern const char *type_001_a_text(void);
 extern struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
 extern void type_001_a_free_cache_data(struct cache_data *);
+extern int type_001_a_create_sub_section(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
 
 /* type-015-mx.c */
 extern const char *type_015_mx_text(void);
@@ -869,6 +874,9 @@ struct type_fn_table {
 	/* parse the zone file entry and returns a blob, suitable to
 	 * transmission */
 	struct cache_data *(*zone_parser_to_cache_data)(struct ctx *, char *);
+
+	/* create from a given cache data entry a dns sub section */
+	int (*create_sub_section)(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
 
 	/* some types allocate dynamic memory for their data. The rule
 	 * is that types which are larger then 8 byte MUST dynamically
