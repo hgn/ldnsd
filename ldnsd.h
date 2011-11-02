@@ -693,88 +693,91 @@ struct ip_prefix_storage {
 };
 
 /* utils.c */
-extern void average_init(struct average *);
-extern int32_t exponential_average(int32_t, int32_t, uint8_t);
-extern void average_add(struct average *, int32_t);
-extern int32_t average_value(struct average *);
-extern unsigned long long xstrtoull(const char *);
-extern void xfstat(int, struct stat *, const char *);
-extern void xsetsockopt(int, int, int, const void *, socklen_t, const char *);
-extern void x_err_sys(int, const char *, int, const char *, ...);
-extern void x_err_ret(int, const char *, int, const char *, ...);
-extern void msg(const char *, ...);
-extern double tv_to_sec(struct timeval *);
-extern int subtime(struct timeval *, struct timeval *, struct timeval *);
-extern int xatoi(const char *);
-extern void * xmalloc(size_t);
-extern void *xzalloc(size_t);
-extern void xfree(void *);
-extern int nodelay(int, int);
-extern void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct addrinfo **);
-extern char *xstrdup(const char *);
-extern void hex_print(char *, size_t);
-extern int ip_valid_addr(int, const char *);
-extern int ipv6_prefix_equal(struct in6_addr *, struct in6_addr *, unsigned int);
-extern int ipv6_addr_cmp(const struct in6_addr *, const struct in6_addr *);
-extern int ipv4_prefix_equal(struct in_addr *, struct in_addr *, int);
-extern int ip_prefix_storage_match(const void *, const void *);
-extern int ip_family(const char *);
-extern int prefix_len_check(int, unsigned int);
-extern char *eat_whitespaces(const char *);
-extern int time_modifier(char);
-extern char *parse_ttl(char *, int *);
+void average_init(struct average *);
+int32_t exponential_average(int32_t, int32_t, uint8_t);
+void average_add(struct average *, int32_t);
+int32_t average_value(struct average *);
+unsigned long long xstrtoull(const char *);
+void xfstat(int, struct stat *, const char *);
+void xsetsockopt(int, int, int, const void *, socklen_t, const char *);
+void x_err_sys(int, const char *, int, const char *, ...);
+void x_err_ret(int, const char *, int, const char *, ...);
+void msg(const char *, ...);
+double tv_to_sec(struct timeval *);
+int subtime(struct timeval *, struct timeval *, struct timeval *);
+int xatoi(const char *);
+void * xmalloc(size_t);
+void *xzalloc(size_t);
+void xfree(void *);
+int nodelay(int, int);
+void xgetaddrinfo(const char *, const char *, struct addrinfo *, struct addrinfo **);
+char *xstrdup(const char *);
+void hex_print(char *, size_t);
+int ip_valid_addr(int, const char *);
+int ipv6_prefix_equal(struct in6_addr *, struct in6_addr *, unsigned int);
+int ipv6_addr_cmp(const struct in6_addr *, const struct in6_addr *);
+int ipv4_prefix_equal(struct in_addr *, struct in_addr *, int);
+int ip_prefix_storage_match(const void *, const void *);
+int ip_family(const char *);
+int prefix_len_check(int, unsigned int);
+char *eat_whitespaces(const char *);
+int time_modifier(char);
+char *parse_ttl(char *, int *);
+void set_bit(int, unsigned long *);
+void clear_bit(int, unsigned long *);
+int test_bit(unsigned int, const unsigned long *);
 
 /* nameserver.c */
-extern int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
-extern struct nameserver *nameserver_select(const struct ctx *);
-extern int nameserver_init(struct ctx *);
-extern enum ns_select_strategy ns_select_strategy_to_enum(const char *);
-extern void nameserver_update_rtt(struct ctx *, struct nameserver *, struct timeval *);
-extern const char *nameserver_id(struct nameserver *);
-extern void nameserver_update_statistic(struct ctx *);
-extern int nameserver_size(struct ctx *);
+int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
+struct nameserver *nameserver_select(const struct ctx *);
+int nameserver_init(struct ctx *);
+enum ns_select_strategy ns_select_strategy_to_enum(const char *);
+void nameserver_update_rtt(struct ctx *, struct nameserver *, struct timeval *);
+const char *nameserver_id(struct nameserver *);
+void nameserver_update_statistic(struct ctx *);
+int nameserver_size(struct ctx *);
 
 
 /* server_side.c */
-extern int adns_request_init(struct ctx *);
-extern int active_dns_request_set(struct ctx *, struct dns_journey *, int (*cb)(struct dns_journey *));
-extern int init_server_side(struct ctx *);
+int adns_request_init(struct ctx *);
+int active_dns_request_set(struct ctx *, struct dns_journey *, int (*cb)(struct dns_journey *));
+int init_server_side(struct ctx *);
 
 /* client_side.c */
-extern void fini_server_socket(int);
-extern int init_client_side(struct ctx *);
+void fini_server_socket(int);
+int init_client_side(struct ctx *);
 
 /* pkt-parser.c */
-extern int clone_dns_pkt(char *, size_t, char **, size_t);
-extern int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
-extern struct dns_journey *alloc_dns_journey(void);
-extern void free_dns_subsection(uint16_t, struct dns_sub_section **);
-extern void free_dns_pdu(struct dns_pdu *);
-extern void pretty_print_flags(FILE *, uint16_t);
-extern void free_dns_journey(struct dns_journey *);
-extern void free_dns_journey_list_entry(void *);
-extern void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
-extern struct dns_pdu *alloc_dns_pdu(void);
-extern int get8(const char *, size_t, size_t, uint8_t *);
-extern int get16(const char *, size_t, size_t, uint16_t *);
-extern int getint32_t(const char *, size_t, size_t, int32_t *);
+int clone_dns_pkt(char *, size_t, char **, size_t);
+int parse_dns_packet(struct ctx *, const char *, const size_t, struct dns_pdu **);
+struct dns_journey *alloc_dns_journey(void);
+void free_dns_subsection(uint16_t, struct dns_sub_section **);
+void free_dns_pdu(struct dns_pdu *);
+void pretty_print_flags(FILE *, uint16_t);
+void free_dns_journey(struct dns_journey *);
+void free_dns_journey_list_entry(void *);
+void dns_packet_set_rr_entries_number(char *, enum rr_section, uint16_t);
+struct dns_pdu *alloc_dns_pdu(void);
+int get8(const char *, size_t, size_t, uint8_t *);
+int get16(const char *, size_t, size_t, uint16_t *);
+int getint32_t(const char *, size_t, size_t, int32_t *);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
-extern void packet_flags_clear(char *);
-extern void packet_flags_set_qr_response(char *);
-extern void packet_flags_set_qr_query(char *);
-extern void packet_flags_set_authoritative_answer(char *);
-extern void packet_flags_set_unauthoritative_answer(char *);
-extern void packet_flags_set_truncated(char *);
-extern void packet_flags_set_untruncated(char *);
-extern void packet_flags_set_recursion_desired(char *);
-extern void packet_flags_set_recursion_undesired(char *);
-extern void packet_flags_set_recursion_available(char *);
-extern void packet_flags_set_recursion_unavailable(char *);
-extern void packet_flags_set_rcode(char *, char);
-extern void packet_flags_set_rc_no_error(char *);
-extern int packet_flags_get_rcode(char *);
+void packet_flags_clear(char *);
+void packet_flags_set_qr_response(char *);
+void packet_flags_set_qr_query(char *);
+void packet_flags_set_authoritative_answer(char *);
+void packet_flags_set_unauthoritative_answer(char *);
+void packet_flags_set_truncated(char *);
+void packet_flags_set_untruncated(char *);
+void packet_flags_set_recursion_desired(char *);
+void packet_flags_set_recursion_undesired(char *);
+void packet_flags_set_recursion_available(char *);
+void packet_flags_set_recursion_unavailable(char *);
+void packet_flags_set_rcode(char *, char);
+void packet_flags_set_rc_no_error(char *);
+int packet_flags_get_rcode(char *);
 
 #define	FLAGS_RCODE_NO_ERROR   0
 #define	FLAGS_RCODE_NAME_ERROR 3
@@ -784,64 +787,64 @@ extern int packet_flags_get_rcode(char *);
 
 
 /* cli_opts.c */
-extern int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
-extern void free_cli_opts(struct cli_opts *);
+int parse_cli_options(struct ctx *, struct cli_opts *, int, char **);
+void free_cli_opts(struct cli_opts *);
 
 
 /* cache.c */
-extern int cache_init(struct ctx *);
-extern int cache_free(struct ctx *);
-extern int cache_add(struct ctx *, struct cache_data *);
-extern int cache_remove(struct ctx *, struct dns_pdu *);
-extern int cache_get(struct ctx *, uint16_t, uint16_t, char *, size_t, struct cache_data **);
+int cache_init(struct ctx *);
+int cache_free(struct ctx *);
+int cache_add(struct ctx *, struct cache_data *);
+int cache_remove(struct ctx *, struct dns_pdu *);
+int cache_get(struct ctx *, uint16_t, uint16_t, char *, size_t, struct cache_data **);
 
 /* zone-parser.c */
-extern int parse_zonefiles(struct ctx *);
+int parse_zonefiles(struct ctx *);
 
 /* type.c */
-extern unsigned type_opts_to_index(uint16_t);
-extern int str_record_type(const char *, int);
-extern const char *type_999_generic_text(void);
-extern const char *type_to_str(uint16_t);
-extern int is_valid_type(uint16_t);
-extern const char *class_to_str(uint16_t);
-extern int is_valid_class(uint16_t);
+unsigned type_opts_to_index(uint16_t);
+int str_record_type(const char *, int);
+const char *type_999_generic_text(void);
+const char *type_to_str(uint16_t);
+int is_valid_type(uint16_t);
+const char *class_to_str(uint16_t);
+int is_valid_class(uint16_t);
 
 
 /* type-001-a.c */
-extern const char *type_001_a_text(void);
-extern struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
-extern void type_001_a_free_cache_data(struct cache_data *);
-extern int type_001_a_create_sub_section(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
+const char *type_001_a_text(void);
+struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
+void type_001_a_free_cache_data(struct cache_data *);
+int type_001_a_create_sub_section(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
 
 /* type-015-mx.c */
-extern const char *type_015_mx_text(void);
-extern struct cache_data *type_015_mx_zone_parser_to_cache_data(struct ctx *, char *);
-extern void type_015_mx_free_cache_data(struct cache_data *);
-extern int type_015_mx_cache_cmp(const struct cache_data *, const struct cache_data *);
+const char *type_015_mx_text(void);
+struct cache_data *type_015_mx_zone_parser_to_cache_data(struct ctx *, char *);
+void type_015_mx_free_cache_data(struct cache_data *);
+int type_015_mx_cache_cmp(const struct cache_data *, const struct cache_data *);
 
 /* type-028-aaaa.c */
-extern const char *type_028_aaaa_text(void);
-extern struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *, char *);
-extern void type_028_aaaa_free_cache_data(struct cache_data *);
-extern int type_028_aaaa_cache_cmp(const struct cache_data *, const struct cache_data *);
+const char *type_028_aaaa_text(void);
+struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *, char *);
+void type_028_aaaa_free_cache_data(struct cache_data *);
+int type_028_aaaa_cache_cmp(const struct cache_data *, const struct cache_data *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
-extern const char *type_041_opt_text(void);
-extern int type_041_opt_parse(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
-extern int type_041_opt_construct_option(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
-extern int type_041_opt_available(struct dns_pdu *);
+const char *type_041_opt_text(void);
+int type_041_opt_parse(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+int type_041_opt_construct_option(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+int type_041_opt_available(struct dns_pdu *);
 
 /* type-999-generic.c */
-extern int type_999_generic_parse(struct ctx *, struct dns_pdu *,struct dns_sub_section *, const char *, int);
-extern int type_999_generic_destruct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int, int);
-extern int type_999_generic_construct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
-extern void type_999_generic_free(struct ctx *, struct dns_sub_section *);
-extern int type_999_generic_available(struct dns_pdu *);
-extern struct cache_data *type_999_generic_zone_parser_to_cache_data(struct ctx *, char *);
-extern void type_999_generic_free_cache_data(struct cache_data *);
-extern int type_999_generic_cache_cmp(const struct cache_data *, const struct cache_data *);
+int type_999_generic_parse(struct ctx *, struct dns_pdu *,struct dns_sub_section *, const char *, int);
+int type_999_generic_destruct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int, int);
+int type_999_generic_construct(struct ctx *, struct dns_pdu *, struct dns_sub_section *, const char *, int);
+void type_999_generic_free(struct ctx *, struct dns_sub_section *);
+int type_999_generic_available(struct dns_pdu *);
+struct cache_data *type_999_generic_zone_parser_to_cache_data(struct ctx *, char *);
+void type_999_generic_free_cache_data(struct cache_data *);
+int type_999_generic_cache_cmp(const struct cache_data *, const struct cache_data *);
 
 
 
@@ -917,9 +920,9 @@ struct dnslabel_table {
 
 
 /* pkt-generator.c */
-extern int pkt_construct_dns_query(struct ctx *, struct dns_journey *, char *,
+int pkt_construct_dns_query(struct ctx *, struct dns_journey *, char *,
 		int, uint16_t, uint16_t , uint16_t, char *, size_t);
-extern off_t dnsname_to_labels(char *, size_t, off_t, const char *, const int, struct dnslabel_table *);
+off_t dnsname_to_labels(char *, size_t, off_t, const char *, const int, struct dnslabel_table *);
 
 
 #endif /* LDNSD_H */
