@@ -24,8 +24,8 @@
  * be defined in ldnsd.h - see TYPE_INDEX_41.
  * Additionaly you must adjust type_opts_to_index()
  * to recognize the new option. Thats all */
-struct type_fn_table type_fn_table[] = {
-	{ /* A Record */
+struct type_fn_table type_fn_table[TYPE_INDEX_TYPE_MAX + 1] = {
+	[TYPE_INDEX_TYPE_A] = {
 		.text                      = type_001_a_text,
 		.parse                     = type_999_generic_parse,
 		.construct                 = type_999_generic_construct,
@@ -34,9 +34,8 @@ struct type_fn_table type_fn_table[] = {
 		.zone_parser_to_cache_data = type_001_a_zone_parser_to_cache_data,
 		.free_cache_priv_data      = type_001_a_free_cache_data,
 		.cache_cmp                 = type_999_generic_cache_cmp,
-		.create_sub_section        = type_001_a_create_sub_section
-	},
-	{ /* MX Records */
+		.create_sub_section        = type_001_a_create_sub_section },
+	[TYPE_INDEX_TYPE_MX] = {
 		.text                      = type_015_mx_text,
 		.parse                     = type_999_generic_parse,
 		.construct                 = type_999_generic_construct,
@@ -44,9 +43,8 @@ struct type_fn_table type_fn_table[] = {
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_015_mx_zone_parser_to_cache_data,
 		.free_cache_priv_data      = type_015_mx_free_cache_data,
-		.cache_cmp                 = type_015_mx_cache_cmp
-	},
-	{ /* AAAA Records */
+		.cache_cmp                 = type_015_mx_cache_cmp },
+	[TYPE_INDEX_TYPE_AAAA] = {
 		.text                      = type_028_aaaa_text,
 		.parse                     = type_999_generic_parse,
 		.construct                 = type_999_generic_construct,
@@ -54,25 +52,22 @@ struct type_fn_table type_fn_table[] = {
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_028_aaaa_zone_parser_to_cache_data,
 		.free_cache_priv_data      = type_028_aaaa_free_cache_data,
-		.cache_cmp                 = type_028_aaaa_cache_cmp
-	},
-	{
-		.text      = type_041_opt_text,
-		.parse     = type_041_opt_parse,
-		.construct = type_041_opt_construct_option,
-		.destruct  = type_999_generic_destruct,
-		.free      = type_999_generic_free,
-		.cache_cmp = type_999_generic_cache_cmp
-	},
-	{
-		.text             = type_999_generic_text,
-		.parse            = type_999_generic_parse,
-		.construct        = type_999_generic_construct,
-		.destruct         = type_999_generic_destruct,
-		.free             = type_999_generic_free,
-		.free_cache_priv_data  = type_999_generic_free_cache_data,
-		.cache_cmp        = type_999_generic_cache_cmp
-	}
+		.cache_cmp                 = type_028_aaaa_cache_cmp },
+	[TYPE_INDEX_TYPE_OPT] = {
+		.text                      = type_041_opt_text,
+		.parse                     = type_041_opt_parse,
+		.construct                 = type_041_opt_construct_option,
+		.destruct                  = type_999_generic_destruct,
+		.free                      = type_999_generic_free,
+		.cache_cmp                 = type_999_generic_cache_cmp },
+	[TYPE_INDEX_TYPE_GENERIC] = {
+		.text                      = type_999_generic_text,
+		.parse                     = type_999_generic_parse,
+		.construct                 = type_999_generic_construct,
+		.destruct                  = type_999_generic_destruct,
+		.free                      = type_999_generic_free,
+		.free_cache_priv_data      = type_999_generic_free_cache_data,
+		.cache_cmp                 = type_999_generic_cache_cmp },
 };
 
 unsigned type_opts_to_index(uint16_t t)

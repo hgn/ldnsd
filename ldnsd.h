@@ -906,8 +906,12 @@ enum {
 	TYPE_INDEX_TYPE_MX,
 	TYPE_INDEX_TYPE_AAAA,
 	TYPE_INDEX_TYPE_OPT,
-	TYPE_INDEX_TYPE_GENERIC /* last in list */
+	TYPE_INDEX_TYPE_GENERIC,
+	__TYPE_INDEX_TYPE_MAX
 };
+
+#define TYPE_INDEX_TYPE_MAX (__TYPE_INDEX_TYPE_MAX - 1)
+
 
 #define MAX_LABELS 128
 /* Structures used to implement name compression */
