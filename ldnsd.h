@@ -501,7 +501,11 @@ struct dns_pdu {
 
 	size_t answers_section_len;
 	struct dns_sub_section **answers_section;
-	const char *answers_section_ptr;
+
+	/* answers_section_ptr can point to the packet
+	 * data (the received packet) or to a new allocated
+	 * answer_data in the case the answer section is created. */
+	char *answers_section_ptr;
 	char *answer_data;
 
 	size_t authority_section_len;

@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2010,2011 - Hagen Paul Pfeifer <hagen@jauu.net>
+** Copyright (C) 2010, 2011 - Hagen Paul Pfeifer <hagen@jauu.net>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,6 +18,17 @@
 
 #include "ldnsd.h"
 #include "cache.h"
+
+/* fixed size for type A */
+#define	DNS_TYPE_A_LEN 4
+
+struct type_001_a_data {
+	uint16_t type;
+	uint16_t class;
+	uint32_t ttl;
+	uint16_t length;
+	uint32_t addr;
+} __attribute__((__packed__));
 
 
 const char *type_001_a_text(void)
@@ -80,9 +91,13 @@ struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *ctx, char *l
 int type_001_a_create_sub_section(struct ctx *ctx, struct cache_data *cd,
 		struct dns_sub_section *dns_ss, char *section)
 {
+	struct type_001_a_data *type_001_a_data;
+
 	assert(ctx);
 	assert(cd);
 	assert(dns_ss);
+
+	assert(cd->type == DNS_TYPE_A);
 
 	/* construct meta-data */
 	dns_ss->name = xmalloc(cd->key_len);
@@ -94,33 +109,17 @@ int type_001_a_create_sub_section(struct ctx *ctx, struct cache_data *cd,
 	dns_ss->ttl      = cd->ttl;
 	dns_ss->rdlength = cd->rdlength;
 
-	/* construct wire data */
+	/* construct wire data, point to question string */
 	section[0] = 0xc0;
 	section[1] = 0x0c;
 
-	/* type */
-	section[2] = 0x00;
-	section[3] = 0x01;
+	type_001_a_data = (struct type_001_a_data *)&section[2];
 
-	/* class */
-	section[4] = 0x00;
-	section[5] = 0x01;
-
-	/* ttl */
-	section[6] = 0x00;
-	section[7] = 0x00;
-	section[8] = 0x0e;
-	section[9] = 0x10;
-
-	/* length */
-	section[10] = 0x00;
-	section[11] = 0x04;
-
-	/* data */
-	section[12] = 0x4e;
-	section[13] = 0x2f;
-	section[14] = 0xde;
-	section[15] = 0xd2;
+	type_001_a_data->type = htons(DNS_TYPE_A);
+	type_001_a_data->class = htons(DNS_CLASS_INET);
+	type_001_a_data->ttl = htonl(cd->ttl);
+	type_001_a_data->length = htons(DNS_TYPE_A_LEN);
+	memcpy(&type_001_a_data->addr, &cd->v4addr, sizeof(cd->v4addr));
 
 	return SUCCESS;
 }
