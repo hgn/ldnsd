@@ -88,32 +88,44 @@ struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *ctx, char *l
 }
 
 
-int type_001_a_create_sub_section(struct ctx *ctx, struct cache_data *cd,
-		struct dns_sub_section *dns_ss, char *section)
+int type_001_a_create_sub_section(struct ctx *ctx,
+		struct cache_data *cd, struct dns_journey *dnsj)
 {
 	struct type_001_a_data *type_001_a_data;
 
 	assert(ctx);
 	assert(cd);
-	assert(dns_ss);
-
+	assert(dnsj);
 	assert(cd->type == DNS_TYPE_A);
 
+	dnsj->p_res_dns_pdu = alloc_dns_pdu();
+
+	/* FIXME */
+	dnsj->p_res_dns_pdu->answers = 1;
+	dnsj->p_res_dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * 1);
+	dnsj->p_res_dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
+
+	/* a pointer to the entire answer section */
+	dnsj->p_res_dns_pdu->answers_section_len = 16;
+	dnsj->p_res_dns_pdu->answer_data = xzalloc(16);
+
+	dnsj->p_res_dns_pdu->answers_section_ptr = dnsj->p_res_dns_pdu->answer_data;
+
 	/* construct meta-data */
-	dns_ss->name = xmalloc(cd->key_len);
+	dnsj->p_res_dns_pdu->answers_section[0]->name = xmalloc(cd->key_len);
 
-	memcpy(dns_ss->name, cd->key, cd->key_len);
+	memcpy(dnsj->p_res_dns_pdu->answers_section[0]->name, cd->key, cd->key_len);
 
-	dns_ss->type     = cd->type;
-	dns_ss->class    = cd->class;
-	dns_ss->ttl      = cd->ttl;
-	dns_ss->rdlength = cd->rdlength;
+	dnsj->p_res_dns_pdu->answers_section[0]->type     = cd->type;
+	dnsj->p_res_dns_pdu->answers_section[0]->class    = cd->class;
+	dnsj->p_res_dns_pdu->answers_section[0]->ttl      = cd->ttl;
+	dnsj->p_res_dns_pdu->answers_section[0]->rdlength = cd->rdlength;
 
 	/* construct wire data, point to question string */
-	section[0] = 0xc0;
-	section[1] = 0x0c;
+	dnsj->p_res_dns_pdu->answer_data[0] = 0xc0;
+	dnsj->p_res_dns_pdu->answer_data[1] = 0x0c;
 
-	type_001_a_data = (struct type_001_a_data *)&section[2];
+	type_001_a_data = (struct type_001_a_data *)&dnsj->p_res_dns_pdu->answer_data[2];
 
 	type_001_a_data->type = htons(DNS_TYPE_A);
 	type_001_a_data->class = htons(DNS_CLASS_INET);

@@ -819,7 +819,7 @@ int is_valid_class(uint16_t);
 const char *type_001_a_text(void);
 struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
 void type_001_a_free_cache_data(struct cache_data *);
-int type_001_a_create_sub_section(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
+int type_001_a_create_sub_section(struct ctx *, struct cache_data *, struct dns_journey *);
 
 /* type-015-mx.c */
 const char *type_015_mx_text(void);
@@ -832,6 +832,7 @@ const char *type_028_aaaa_text(void);
 struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *, char *);
 void type_028_aaaa_free_cache_data(struct cache_data *);
 int type_028_aaaa_cache_cmp(const struct cache_data *, const struct cache_data *);
+int type_028_aaaa_create_sub_section(struct ctx *, struct cache_data *, struct dns_journey *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
@@ -883,7 +884,7 @@ struct type_fn_table {
 	struct cache_data *(*zone_parser_to_cache_data)(struct ctx *, char *);
 
 	/* create from a given cache data entry a dns sub section */
-	int (*create_sub_section)(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
+	int (*create_sub_section)(struct ctx *, struct cache_data *, struct dns_journey *);
 
 	/* some types allocate dynamic memory for their data. The rule
 	 * is that types which are larger then 8 byte MUST dynamically

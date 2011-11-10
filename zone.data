@@ -10,7 +10,7 @@ A +86401 	jauu.net.	 192.168.1.1
 A b.example.net.	 192.168.1.2
 
 
-AAAA +1h a.example.net. 2001:0DB8::1
+AAAA +2h a.example.net. 2001:0DB8::01
 
 
 # mail exchange record

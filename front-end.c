@@ -231,24 +231,9 @@ int active_dns_request_set(struct ctx *ctx,
 		pr_debug("found data in cache");
 		/* in cache, cd pints to the valid cache data */
 
-		dnsj->p_res_dns_pdu = alloc_dns_pdu();
-
-		/* FIXME */
-		dnsj->p_res_dns_pdu->answers = 1;
-		dnsj->p_res_dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * 1);
-		dnsj->p_res_dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
-
-		/* a pointer to the entire answer section */
-		dnsj->p_res_dns_pdu->answers_section_len = 16;
-		dnsj->p_res_dns_pdu->answer_data = xzalloc(16);
-
-		dnsj->p_res_dns_pdu->answers_section_ptr = dnsj->p_res_dns_pdu->answer_data;
-
 		BUG_ON(!type_fn_table[type_opts_to_index(cd->type)].create_sub_section);
 
-		ret = type_fn_table[type_opts_to_index(cd->type)].create_sub_section(ctx, cd,
-				dnsj->p_res_dns_pdu->answers_section[0],
-				dnsj->p_res_dns_pdu->answers_section_ptr);
+		ret = type_fn_table[type_opts_to_index(cd->type)].create_sub_section(ctx, cd, dnsj);
 		if (ret != SUCCESS) {
 			free_dns_journey(dnsj);
 			err_msg("Cannot create sub section for answer from cache_data");

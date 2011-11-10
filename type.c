@@ -52,6 +52,7 @@ struct type_fn_table type_fn_table[TYPE_INDEX_TYPE_MAX + 1] = {
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_028_aaaa_zone_parser_to_cache_data,
 		.free_cache_priv_data      = type_028_aaaa_free_cache_data,
+		.create_sub_section        = type_028_aaaa_create_sub_section,
 		.cache_cmp                 = type_028_aaaa_cache_cmp },
 	[TYPE_INDEX_TYPE_OPT] = {
 		.text                      = type_041_opt_text,
