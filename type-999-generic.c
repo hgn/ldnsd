@@ -148,6 +148,4 @@ int type_999_generic_available(struct dns_pdu *dns_pdu)
 void type_999_generic_free_cache_data(struct cache_data *cd)
 {
 	(void) cd;
-
-	abort();
 }

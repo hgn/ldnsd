@@ -76,9 +76,10 @@ int cache_data_key_cmp(const void *a, const void *b)
 	if (aa->key[aa->key_len - 2] == '.')
 		cmp_len = aa->key_len - 3;
 	else {
-		cmp_len = aa->key_len;
 		if (aa->key_len != bb->key_len)
 			return 0;
+
+		cmp_len = aa->key_len;
 	}
 
 	if (memcmp(aa->key, bb->key, cmp_len))

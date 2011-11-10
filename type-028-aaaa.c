@@ -129,7 +129,6 @@ int type_028_aaaa_create_sub_section(struct ctx *ctx, struct cache_data *cd,
 	struct type_028_aaaa_data *type_028_aaaa_data;
 	struct cache_data_type_aaaa *cache_data_type_aaaa;
 
-
 	assert(ctx);
 	assert(cd);
 	assert(dnsj);
@@ -194,6 +193,4 @@ void type_028_aaaa_free_cache_data(struct cache_data *cd)
 	cd_aaaa = cache_data_priv(cd);
 	if (cd_aaaa)
 		xfree(cd_aaaa);
-
-	xfree(cd_aaaa);
 }

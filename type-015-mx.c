@@ -131,10 +131,16 @@ void type_015_mx_free_cache_data(struct cache_data *cd)
 
 	assert(cd);
 
+	/* think about that cache data structures
+	 * are used for two purposes:
+	 * 1. as a normal storage container
+	 * 2. as a temporary search key container where
+	 *    no data is attached, just the key. Therefore
+	 *    the free function must take care of this. */
 	cd_mx = cache_data_priv(cd);
-	assert(cd_mx);
-	assert(cd_mx->domain_name);
-
-	xfree(cd_mx->domain_name);
-	xfree(cd_mx);
+	if (cd_mx) {
+		assert(cd_mx->domain_name);
+		xfree(cd_mx->domain_name);
+		xfree(cd_mx);
+	}
 }
