@@ -8,3 +8,14 @@ socket should listen to this addresses only.
 Port randomization for outgoing port. Let the OS choose the emphereal port,
 something strange to limit this is not that clever. On the other hand: how
 rand() is the kernel port selector?
+
+A datum can be in two different local databases: the local authority database
+and the cache database. In the local cache database entries are not decoded,
+they are plein forwarded without modification. Therefore no deeper knowledge of
+the encoded data is available. In the second case the authority database the
+entries are saved in a "human" encoding, that means that the datum must be
+encoded into a wire format each time. This is causes by the fact that some
+parts of the RR can be changed (and therefore labals can be changed). This is a
+little bit awkward if the encoder cannot trust the labels anymore. Therefore we
+go the easy way and encode the data every time. Later this can be optimized by
+save the memory location and introduce a dirty flag or similar.
