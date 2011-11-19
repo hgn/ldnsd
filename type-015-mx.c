@@ -25,6 +25,10 @@ struct cache_data_type_mx {
 	uint16_t preference;
 };
 
+/* binary, over-the-air encoding */
+struct type_015_mx_data {
+};
+
 
 const char *type_015_mx_text(void)
 {
@@ -122,6 +126,59 @@ struct cache_data *type_015_mx_zone_parser_to_cache_data(struct ctx *ctx, char *
 
 	return cache_data_create_private(DNS_TYPE_MX, DNS_CLASS_INET,
 			timeval, zone_str, strlen(zone_str) + 1, cd_mx);
+}
+
+
+int type_015_mx_create_sub_section(struct ctx *ctx, struct cache_data *cd,
+		struct dns_journey *dnsj)
+{
+	int ret;
+	struct type_015_mx_data *type_015_mx_data;
+	struct cache_data_type_mx *cache_data_type_mx;
+
+	assert(ctx);
+	assert(cd);
+	assert(dnsj);
+
+	assert(cd->type == DNS_TYPE_MX);
+
+	ret = construct_self_crafted_p_res_dns_pdu(ctx, dnsj, 1,
+			sizeof(struct type_015_mx_data) + 2);
+	if (ret != SUCCESS) {
+		err_msg("Failed to contruct self crafted answer pdu");
+		return FAILURE;
+	}
+
+	/* construct meta-data */
+	dnsj->p_res_dns_pdu->answers_section[0]->name = xmalloc(cd->key_len);
+
+	memcpy(dnsj->p_res_dns_pdu->answers_section[0]->name, cd->key, cd->key_len);
+
+	dnsj->p_res_dns_pdu->answers_section[0]->type     = cd->type;
+	dnsj->p_res_dns_pdu->answers_section[0]->class    = cd->class;
+	dnsj->p_res_dns_pdu->answers_section[0]->ttl      = cd->ttl;
+	dnsj->p_res_dns_pdu->answers_section[0]->rdlength = cd->rdlength;
+
+	/* construct wire data, point to question string */
+	dnsj->p_res_dns_pdu->answer_data[0] = 0xc0;
+	dnsj->p_res_dns_pdu->answer_data[1] = 0x0c;
+
+	type_015_mx_data = (struct type_015_mx_data *)&dnsj->p_res_dns_pdu->answer_data[2];
+
+	//FIXME
+#if 0
+	type_015_mx_data->type   = htons(DNS_TYPE_MX);
+	type_015_mx_data->class  = htons(DNS_CLASS_INET);
+	type_015_mx_data->ttl    = htonl(cd->ttl);
+	type_015_mx_data->length = htons(DNS_TYPE_AAAA_LEN);
+
+	cache_data_type_aaaa = cache_data_priv(cd);
+
+	memcpy(&type_028_aaaa_data->addr, &cache_data_type_aaaa->addr,
+			sizeof(type_028_aaaa_data->addr));
+#endif
+
+	return SUCCESS;
 }
 
 

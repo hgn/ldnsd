@@ -91,6 +91,7 @@ struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *ctx, char *l
 int type_001_a_create_sub_section(struct ctx *ctx,
 		struct cache_data *cd, struct dns_journey *dnsj)
 {
+	int ret;
 	struct type_001_a_data *type_001_a_data;
 
 	assert(ctx);
@@ -98,18 +99,12 @@ int type_001_a_create_sub_section(struct ctx *ctx,
 	assert(dnsj);
 	assert(cd->type == DNS_TYPE_A);
 
-	dnsj->p_res_dns_pdu = alloc_dns_pdu();
-
-	/* FIXME */
-	dnsj->p_res_dns_pdu->answers = 1;
-	dnsj->p_res_dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * 1);
-	dnsj->p_res_dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
-
-	/* a pointer to the entire answer section */
-	dnsj->p_res_dns_pdu->answers_section_len = 16;
-	dnsj->p_res_dns_pdu->answer_data = xzalloc(16);
-
-	dnsj->p_res_dns_pdu->answers_section_ptr = dnsj->p_res_dns_pdu->answer_data;
+	ret = construct_self_crafted_p_res_dns_pdu(ctx, dnsj, 1,
+			sizeof(struct type_001_a_data) + 2);
+	if (ret != SUCCESS) {
+		err_msg("Failed to contruct self crafted answer pdu");
+		return FAILURE;
+	}
 
 	/* construct meta-data */
 	dnsj->p_res_dns_pdu->answers_section[0]->name = xmalloc(cd->key_len);
@@ -125,7 +120,8 @@ int type_001_a_create_sub_section(struct ctx *ctx,
 	dnsj->p_res_dns_pdu->answer_data[0] = 0xc0;
 	dnsj->p_res_dns_pdu->answer_data[1] = 0x0c;
 
-	type_001_a_data = (struct type_001_a_data *)&dnsj->p_res_dns_pdu->answer_data[2];
+	type_001_a_data =
+		(struct type_001_a_data *)&dnsj->p_res_dns_pdu->answer_data[2];
 
 	type_001_a_data->type = htons(DNS_TYPE_A);
 	type_001_a_data->class = htons(DNS_CLASS_INET);
@@ -137,6 +133,7 @@ int type_001_a_create_sub_section(struct ctx *ctx,
 }
 
 
+/* nothing to free for A record */
 void type_001_a_free_cache_data(struct cache_data *cd)
 {
 	(void) cd;

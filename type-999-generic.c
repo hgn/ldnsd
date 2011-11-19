@@ -60,6 +60,8 @@ int type_999_generic_construct(struct ctx *ctx, struct dns_pdu *dp,
 	(void) ctx;
 	(void) dp;
 
+	assert(0);
+
 	if (max_len < 0) {
 		pr_debug("packet buffer to small");
 		return -1;

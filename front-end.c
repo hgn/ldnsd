@@ -228,7 +228,7 @@ int active_dns_request_set(struct ctx *ctx,
 
 		assert(cd);
 
-		pr_debug("found data in cache");
+		pr_debug("found data in authority cache");
 		/* in cache, cd pints to the valid cache data */
 
 		BUG_ON(!type_fn_table[type_opts_to_index(cd->type)].create_sub_section);

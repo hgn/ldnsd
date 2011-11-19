@@ -185,3 +185,23 @@ int is_valid_class(uint16_t class)
 	return FAILURE;
 }
 
+
+int construct_self_crafted_p_res_dns_pdu(struct ctx *ctx,
+		struct dns_journey *dnsj, unsigned no_sub_sections, size_t len)
+{
+	assert(!dnsj->p_res_dns_pdu);
+
+	dnsj->p_res_dns_pdu = alloc_dns_pdu();
+
+	dnsj->p_res_dns_pdu->answers = no_sub_sections;
+	dnsj->p_res_dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * no_sub_sections);
+	dnsj->p_res_dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
+
+	/* a pointer to the entire answer section */
+	dnsj->p_res_dns_pdu->answers_section_len = len;
+	dnsj->p_res_dns_pdu->answer_data = xzalloc(len);
+
+	dnsj->p_res_dns_pdu->answers_section_ptr = dnsj->p_res_dns_pdu->answer_data;
+
+	return SUCCESS;
+}

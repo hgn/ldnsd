@@ -813,6 +813,7 @@ const char *type_to_str(uint16_t);
 int is_valid_type(uint16_t);
 const char *class_to_str(uint16_t);
 int is_valid_class(uint16_t);
+int construct_self_crafted_p_res_dns_pdu(struct ctx *, struct dns_journey *, unsigned, size_t);
 
 
 /* type-001-a.c */

@@ -20,10 +20,10 @@
 
 
 
-/* return the position of the label in the current message, or -1 if the label */
-/* hasn't been used yet. */
-static int
-dnslabel_table_get_pos(const struct dnslabel_table *table, const char *label)
+/* return the position of the label in the current message,
+ * or -1 if the label hasn't been used yet. */
+static int dnslabel_table_get_pos(const struct dnslabel_table *table,
+		const char *label)
 {
 	int i;
 	for (i = 0; i < table->n_labels; ++i) {
@@ -34,8 +34,8 @@ dnslabel_table_get_pos(const struct dnslabel_table *table, const char *label)
 }
 
 /* remember that we've used the label at position pos */
-static int
-dnslabel_table_add(struct dnslabel_table *table, const char *label, off_t pos)
+static int dnslabel_table_add(struct dnslabel_table *table,
+		const char *label, off_t pos)
 {
 	char *v;
 	int p;
@@ -68,7 +68,8 @@ dnslabel_table_add(struct dnslabel_table *table, const char *label, off_t pos)
 /* */
 off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
 				  const char *name, const int name_len,
-				  struct dnslabel_table *table) {
+				  struct dnslabel_table *table)
+{
 	const char *end = name + name_len;
 	int ref = 0;
 	uint16_t _t;
