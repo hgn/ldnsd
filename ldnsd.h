@@ -497,10 +497,10 @@ struct dns_pdu {
 	uint16_t authority;
 	uint16_t additional;
 
-	size_t questions_section_len;
 	struct dns_sub_section **questions_section;
 	/* a pointer in the packet to the start of
 	 * the question section plus the length */
+	size_t questions_section_len;
 	const char *questions_section_ptr;
 
 	size_t answers_section_len;
