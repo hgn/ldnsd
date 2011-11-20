@@ -19,6 +19,22 @@
 #include "ldnsd.h"
 
 
+#define APPEND16(x) do {		\
+	if (j + 2 > (off_t)buf_len)	\
+	goto overflow;			\
+	_t = htons(x);			\
+	memcpy(buf + j, &_t, 2);	\
+	j += 2;				\
+} while (0)
+
+#define APPEND32(x) do {		\
+	if (j + 4 > (off_t)buf_len)	\
+	goto overflow;			\
+	_t32 = htonl(x);		\
+	memcpy(buf + j, &_t32, 4);	\
+	j += 4;				\
+} while (0)
+
 
 /* return the position of the label in the current message,
  * or -1 if the label hasn't been used yet. */
@@ -73,21 +89,6 @@ off_t dnsname_to_labels(char *buf, size_t buf_len, off_t j,
 	const char *end = name + name_len;
 	int ref = 0;
 	uint16_t _t;
-
-#define APPEND16(x) do {						\
-		if (j + 2 > (off_t)buf_len)				\
-			goto overflow;					\
-		_t = htons(x);						\
-		memcpy(buf + j, &_t, 2);				\
-		j += 2;							\
-	} while (0)
-#define APPEND32(x) do {						\
-		if (j + 4 > (off_t)buf_len)				\
-			goto overflow;					\
-		_t32 = htonl(x);					\
-		memcpy(buf + j, &_t32, 4);				\
-		j += 4;							\
-	} while (0)
 
 	if (name_len > 255) {
 		pr_debug("name is longer then 255 characters - "
