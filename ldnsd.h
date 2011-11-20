@@ -768,6 +768,7 @@ int getint32_t(const char *, size_t, size_t, int32_t *);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
+void packet_set_id(char *, uint16_t);
 void packet_flags_clear(char *);
 void packet_flags_set_qr_response(char *);
 void packet_flags_set_qr_query(char *);
