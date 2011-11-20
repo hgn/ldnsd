@@ -64,17 +64,21 @@
 # define ULLONG_MAX 18446744073709551615ULL
 #endif
 
-/* the following typedefs are for documentation
+/*
+ * The following typedefs are for documentation
  * and strict type checking - sometimes we will
  * save some network bytorder encoding instruction
  * that in network byte order to reduce otherwise
- * senseless conversion */
-typedef uint16_t le16;
-typedef uint16_t be16;
-typedef uint32_t le32;
-typedef uint32_t be32;
-typedef uint64_t le64;
-typedef uint64_t be64;
+ * senseless conversion.
+ * hb -> host byteorder
+ * nb -> network byteorder
+ */
+typedef uint16_t hb16;
+typedef uint16_t nb16;
+typedef uint32_t hb32;
+typedef uint32_t nb32;
+typedef uint64_t hb64;
+typedef uint64_t nb64;
 
 #define min(x,y) ({			\
 	typeof(x) _x = (x);		\
@@ -453,8 +457,8 @@ typedef union
 
 struct dns_sub_section {
 	char *name; /* the already restructed label */
-	uint16_t type;
-	uint16_t class;
+	hb16 type;
+	hb16 class;
 
 	/* ttl specifies the time interval that the resource record
 	 * may be cached before the source of the information should
@@ -768,7 +772,7 @@ int getint32_t(const char *, size_t, size_t, int32_t *);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
-void packet_set_id(char *, uint16_t);
+void packet_set_transaction_id(char *, uint16_t);
 void packet_flags_clear(char *);
 void packet_flags_set_qr_response(char *);
 void packet_flags_set_qr_query(char *);
