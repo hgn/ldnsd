@@ -606,6 +606,8 @@ static void incoming_request(int fd, int what, void *data)
 			continue;
 		}
 
+		ctx->statistics.queries++;
+
 		process_p_dns_query(ctx, packet, rc, &ss, ss_len);
 	}
 }

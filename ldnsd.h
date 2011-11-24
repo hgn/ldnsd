@@ -357,6 +357,9 @@ enum {
 #define DEFAULT_MODE MODE_ITERATIVE
 
 struct statistics {
+
+	unsigned long queries;
+
 	unsigned long lookup_in_cache;
 	unsigned long lookup_not_in_cache;
 };
