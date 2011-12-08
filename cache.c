@@ -59,7 +59,7 @@ struct cache_data *cache_data_create_private(uint16_t type, uint16_t class,
 int cache_data_key_cmp(const void *a, const void *b)
 {
 	const struct cache_data *aa, *bb;
-	size_t cmp_len;
+	size_t aa_key_len, bb_key_len;
 
 	assert(a);
 	assert(b);
@@ -69,19 +69,27 @@ int cache_data_key_cmp(const void *a, const void *b)
 	if (aa->type != bb->type || aa->class != bb->class)
 		return 0;
 
-	/* ignore the trailing dot, if present in
-	 * query or database. Later this should be
-	 * adjusted depending on the final dot (FQDN)
-	 * for queries */
+	/*
+	 * first check if a trailing dot is present
+	 */
 	if (aa->key[aa->key_len - 2] == '.')
-		cmp_len = aa->key_len - 3;
-	else {
-		cmp_len = aa->key_len;
-		if (aa->key_len != bb->key_len)
-			return 0;
-	}
+		aa_key_len = aa->key_len - 2;
+	else
+		aa_key_len = aa->key_len;
 
-	if (memcmp(aa->key, bb->key, cmp_len))
+	if (bb->key[bb->key_len - 2] == '.')
+		bb_key_len = bb->key_len - 2;
+	else
+		bb_key_len = bb->key_len;
+
+	pr_debug("compare - key1: %s (%u) - key2: %s (%u))",
+			aa->key, aa_key_len, bb->key, bb_key_len);
+
+	if (aa_key_len != bb_key_len)
+		return 0;
+
+
+	if (memcmp(aa->key, bb->key, aa_key_len))
 		return 0;
 
 	return 1;
