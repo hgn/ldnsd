@@ -92,6 +92,8 @@ static void fire_error(struct dns_journey *dnsj)
 static int construct_header_question_section(struct dns_journey *dnsj,
 		char *packet, int offset, int max_len)
 {
+	off_t j;
+	uint16_t *type, *class;
 	int len = DNS_PDU_HEADER_LEN + dnsj->p_req_dns_pdu->questions_section_len;
 
 	(void) offset;
@@ -107,9 +109,10 @@ static int construct_header_question_section(struct dns_journey *dnsj,
 	/* generate packet. We clone the original
 	 * packet here, but only the header and the
 	 * quesion section, the rest is neglected */
-	memcpy(packet, dnsj->p_req_packet, len);
+	//memcpy(packet, dnsj->p_req_packet, len);
 
 	/* set default response flag */
+	packet_set_transaction_id(packet, htons(dnsj->p_req_dns_pdu->id));
 	packet_flags_clear(packet);
 	packet_flags_set_qr_response(packet);
 	packet_flags_set_unauthoritative_answer(packet);
@@ -120,6 +123,25 @@ static int construct_header_question_section(struct dns_journey *dnsj,
 	dns_packet_set_rr_entries_number(packet, RR_SECTION_ANCOUNT, 0);
 	dns_packet_set_rr_entries_number(packet, RR_SECTION_NSCOUNT, 0);
 	dns_packet_set_rr_entries_number(packet, RR_SECTION_ARCOUNT, 0);
+
+	assert(dnsj->p_req_dns_pdu->questions == 1);
+
+	j = dnsname_to_labels(&packet[offset + DNS_PDU_HEADER_LEN],
+			max_len - DNS_PDU_HEADER_LEN,
+			0,
+			dnsj->p_req_dns_pdu->questions_section[0]->name,
+			strlen(dnsj->p_req_dns_pdu->questions_section[0]->name),
+			NULL);
+	if (j < 0) {
+		err_msg("Cannot construct DNS answer section label");
+		return j;
+	}
+
+	type  = (uint16_t *)&packet[DNS_PDU_HEADER_LEN + j];
+	class = (uint16_t *)&packet[DNS_PDU_HEADER_LEN + j + sizeof(uint16_t)];
+
+	*type  = htons(dnsj->p_req_dns_pdu->questions_section[0]->type);
+	*class = htons(dnsj->p_req_dns_pdu->questions_section[0]->class);
 
 	return len;
 }
@@ -409,7 +431,10 @@ static int enqueue_request(struct ctx *ctx, struct dns_journey *dns_journey)
 }
 
 
-static void process_p_dns_query(struct ctx *ctx, const char *packet, const size_t len,
+/* this method is called if a new DNS
+ * query is send from a resolver */
+static void process_p_dns_query(struct ctx *ctx,
+		const char *packet, const size_t len,
 		const struct sockaddr_storage *ss, socklen_t ss_len)
 {
 	int ret;
@@ -475,7 +500,8 @@ static void process_p_dns_query(struct ctx *ctx, const char *packet, const size_
 	/* now we do the actual query */
 	ret = enqueue_request(ctx, dns_journey);
 	if (ret != SUCCESS) {
-		/* FIXME: were is the free() ? */
+		/* FIXME: were is the free()?
+		 * Is is save to call dns_journey_free() at this time? */
 		err_msg("Cannot enqueue request in active queue");
 		return;
 	}
@@ -579,6 +605,8 @@ static void incoming_request(int fd, int what, void *data)
 			pr_debug("query ignored because of active IP filter");
 			continue;
 		}
+
+		ctx->statistics.queries++;
 
 		process_p_dns_query(ctx, packet, rc, &ss, ss_len);
 	}

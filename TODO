@@ -8,3 +8,29 @@ socket should listen to this addresses only.
 Port randomization for outgoing port. Let the OS choose the emphereal port,
 something strange to limit this is not that clever. On the other hand: how
 rand() is the kernel port selector?
+
+Replace recvfrom() with recvmsg() and add source port for security reason:
+struct msghdr msg;
+struct cmsghdr *cmsg;
+struct in_addr addr;
+sockopt(fd, IP_PKTINFO, ...);
+/* recvmsg(sd, &msg, flags); */
+for(cmsg = CMSG_FIRSTHDR(&msg);
+		cmsg != NULL;
+		cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
+				addr = ((struct in_pktinfo*)CMSG_DATA(cmsg))->ipi_addr;
+				printf("message received on address %s\n", inet_ntoa(addr));
+  }
+}
+
+A datum can be in two different local databases: the local authority database
+and the cache database. In the local cache database entries are not decoded,
+they are plein forwarded without modification. Therefore no deeper knowledge of
+the encoded data is available. In the second case the authority database the
+entries are saved in a "human" encoding, that means that the datum must be
+encoded into a wire format each time. This is causes by the fact that some
+parts of the RR can be changed (and therefore labals can be changed). This is a
+little bit awkward if the encoder cannot trust the labels anymore. Therefore we
+go the easy way and encode the data every time. Later this can be optimized by
+save the memory location and introduce a dirty flag or similar.

@@ -52,6 +52,7 @@ struct type_fn_table type_fn_table[TYPE_INDEX_TYPE_MAX + 1] = {
 		.free                      = type_999_generic_free,
 		.zone_parser_to_cache_data = type_028_aaaa_zone_parser_to_cache_data,
 		.free_cache_priv_data      = type_028_aaaa_free_cache_data,
+		.create_sub_section        = type_028_aaaa_create_sub_section,
 		.cache_cmp                 = type_028_aaaa_cache_cmp },
 	[TYPE_INDEX_TYPE_OPT] = {
 		.text                      = type_041_opt_text,
@@ -184,3 +185,23 @@ int is_valid_class(uint16_t class)
 	return FAILURE;
 }
 
+
+int construct_self_crafted_p_res_dns_pdu(struct ctx *ctx,
+		struct dns_journey *dnsj, unsigned no_sub_sections, size_t len)
+{
+	assert(!dnsj->p_res_dns_pdu);
+
+	dnsj->p_res_dns_pdu = alloc_dns_pdu();
+
+	dnsj->p_res_dns_pdu->answers = no_sub_sections;
+	dnsj->p_res_dns_pdu->answers_section = xzalloc(sizeof(struct dns_sub_section *) * no_sub_sections);
+	dnsj->p_res_dns_pdu->answers_section[0] = xzalloc(sizeof(struct dns_sub_section));
+
+	/* a pointer to the entire answer section */
+	dnsj->p_res_dns_pdu->answers_section_len = len;
+	dnsj->p_res_dns_pdu->answer_data = xzalloc(len);
+
+	dnsj->p_res_dns_pdu->answers_section_ptr = dnsj->p_res_dns_pdu->answer_data;
+
+	return SUCCESS;
+}

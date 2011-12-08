@@ -64,17 +64,21 @@
 # define ULLONG_MAX 18446744073709551615ULL
 #endif
 
-/* the following typedefs are for documentation
+/*
+ * The following typedefs are for documentation
  * and strict type checking - sometimes we will
  * save some network bytorder encoding instruction
  * that in network byte order to reduce otherwise
- * senseless conversion */
-typedef uint16_t le16;
-typedef uint16_t be16;
-typedef uint32_t le32;
-typedef uint32_t be32;
-typedef uint64_t le64;
-typedef uint64_t be64;
+ * senseless conversion.
+ * hb -> host byteorder
+ * nb -> network byteorder
+ */
+typedef uint16_t hb16;
+typedef uint16_t nb16;
+typedef uint32_t hb32;
+typedef uint32_t nb32;
+typedef uint64_t hb64;
+typedef uint64_t nb64;
 
 #define min(x,y) ({			\
 	typeof(x) _x = (x);		\
@@ -353,6 +357,9 @@ enum {
 #define DEFAULT_MODE MODE_ITERATIVE
 
 struct statistics {
+
+	unsigned long queries;
+
 	unsigned long lookup_in_cache;
 	unsigned long lookup_not_in_cache;
 };
@@ -453,8 +460,8 @@ typedef union
 
 struct dns_sub_section {
 	char *name; /* the already restructed label */
-	uint16_t type;
-	uint16_t class;
+	hb16 type;
+	hb16 class;
 
 	/* ttl specifies the time interval that the resource record
 	 * may be cached before the source of the information should
@@ -493,15 +500,19 @@ struct dns_pdu {
 	uint16_t authority;
 	uint16_t additional;
 
-	size_t questions_section_len;
 	struct dns_sub_section **questions_section;
 	/* a pointer in the packet to the start of
 	 * the question section plus the length */
+	size_t questions_section_len;
 	const char *questions_section_ptr;
 
 	size_t answers_section_len;
 	struct dns_sub_section **answers_section;
-	const char *answers_section_ptr;
+
+	/* answers_section_ptr can point to the packet
+	 * data (the received packet) or to a new allocated
+	 * answer_data in the case the answer section is created. */
+	char *answers_section_ptr;
 	char *answer_data;
 
 	size_t authority_section_len;
@@ -764,6 +775,7 @@ int getint32_t(const char *, size_t, size_t, int32_t *);
 
 /* all packet_flags_* functions have as the very first argument
  * a pointer to the start of a DNS packet blob */
+void packet_set_transaction_id(char *, uint16_t);
 void packet_flags_clear(char *);
 void packet_flags_set_qr_response(char *);
 void packet_flags_set_qr_query(char *);
@@ -809,13 +821,14 @@ const char *type_to_str(uint16_t);
 int is_valid_type(uint16_t);
 const char *class_to_str(uint16_t);
 int is_valid_class(uint16_t);
+int construct_self_crafted_p_res_dns_pdu(struct ctx *, struct dns_journey *, unsigned, size_t);
 
 
 /* type-001-a.c */
 const char *type_001_a_text(void);
 struct cache_data *type_001_a_zone_parser_to_cache_data(struct ctx *, char *);
 void type_001_a_free_cache_data(struct cache_data *);
-int type_001_a_create_sub_section(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
+int type_001_a_create_sub_section(struct ctx *, struct cache_data *, struct dns_journey *);
 
 /* type-015-mx.c */
 const char *type_015_mx_text(void);
@@ -828,6 +841,7 @@ const char *type_028_aaaa_text(void);
 struct cache_data *type_028_aaaa_zone_parser_to_cache_data(struct ctx *, char *);
 void type_028_aaaa_free_cache_data(struct cache_data *);
 int type_028_aaaa_cache_cmp(const struct cache_data *, const struct cache_data *);
+int type_028_aaaa_create_sub_section(struct ctx *, struct cache_data *, struct dns_journey *);
 
 /* type-041-opt.c */
 #define	TYPE_041_OPT_LEN 11 /* fixed len of this option */
@@ -879,7 +893,7 @@ struct type_fn_table {
 	struct cache_data *(*zone_parser_to_cache_data)(struct ctx *, char *);
 
 	/* create from a given cache data entry a dns sub section */
-	int (*create_sub_section)(struct ctx *, struct cache_data *, struct dns_sub_section *, char *);
+	int (*create_sub_section)(struct ctx *, struct cache_data *, struct dns_journey *);
 
 	/* some types allocate dynamic memory for their data. The rule
 	 * is that types which are larger then 8 byte MUST dynamically

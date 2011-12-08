@@ -460,6 +460,15 @@ void dns_packet_set_rr_entries_number(char *packet, enum rr_section rr_section, 
 #define	PACKET_OFFSET_FLAG_FIELD_B1 2
 #define	PACKET_OFFSET_FLAG_FIELD_B2 3
 
+void packet_set_transaction_id(char *packet, uint16_t id)
+{
+	uint16_t *packet_id;
+
+	packet_id = &packet[0];
+
+	*packet_id = id;
+}
+
 /* clear the whole 16 bit flag field */
 void packet_flags_clear(char *packet)
 {

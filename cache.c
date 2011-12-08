@@ -88,7 +88,6 @@ int cache_data_key_cmp(const void *a, const void *b)
 	if (aa_key_len != bb_key_len)
 		return 0;
 
-
 	if (memcmp(aa->key, bb->key, aa_key_len))
 		return 0;
 
