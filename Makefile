@@ -1,17 +1,15 @@
 EPOLL :=1 
 
-CC = gcc
-AR = ar
-RM = rm -f
-TAR = tar
-FIND = find
-INSTALL = install
+CC ?= gcc
+AR ?= ar
+RM ?= rm -f
+TAR ?= tar
+FIND ?= find
+INSTALL ?= install
 
-EXTRA_WARNINGS += -Wall
 EXTRA_WARNINGS += -Wbad-function-cast
 EXTRA_WARNINGS += -Wcast-align
 EXTRA_WARNINGS += -Wdeclaration-after-statement
-EXTRA_WARNINGS += -Wextra
 EXTRA_WARNINGS += -Wformat
 EXTRA_WARNINGS += -Wformat-security
 EXTRA_WARNINGS += -Wformat-y2k
@@ -49,12 +47,17 @@ endif
 EXTRA_CFLAGS := -D_GNU_SOURCE
 EXTRA_CFLAGS += -DDEBUG
 
+# enable via "make MUDFLAP=1 all"
+ifeq ("$(origin MUDFLAP)", "command line")
+	EXTRA_CFLAGS += -fmudflap -lmudflap
+endif
+
 
 ifdef EPOLL
 				EXTRA_CFLAGS += -DHAVE_EPOLL
 endif
 
-CFLAGS = -ggdb3 -Wall -Wextra -std=gnu99 $(CFLAGS_OPTIMIZE) -D_FORTIFY_SOURCE=2 $(EXTRA_WARNINGS) $(EXTRA_CFLAGS)
+CFLAGS += -ggdb3 -Wall -Wextra -std=gnu99 $(CFLAGS_OPTIMIZE) -D_FORTIFY_SOURCE=2 $(EXTRA_WARNINGS) $(EXTRA_CFLAGS)
 EXTLIBS = -lrt
 ALL_CFLAGS = $(CFLAGS)
 ALL_LDFLAGS = $(LDFLAGS)
