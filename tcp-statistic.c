@@ -20,8 +20,8 @@
 #include <errno.h>
 #include <signal.h>
 
-#define DEFAULT_TCP_STATISTIC_BACKLOG 128
-#define DEFAULT_TCP_STATISTIC_PORT "9999"
+#include "tcp-statistic.h"
+
 
 static void xxx(struct ev *ev, int fd)
 {

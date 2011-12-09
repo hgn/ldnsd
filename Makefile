@@ -81,6 +81,7 @@ ifeq ("$(origin TCPSTATISTIC)", "command line")
 	EXTRA_CFLAGS += -DTCP_STATISTIC
 endif
 
+
 ifdef EPOLL
 				EXTRA_CFLAGS += -DHAVE_EPOLL
 endif
@@ -100,7 +101,7 @@ TARGET := ldnsd
 .SUFFIXES:
 .SUFFIXES: .c .o
 
-all: $(TARGET)
+all: $(TARGET) ldnsd-ctrl
 
 lex.yy.c: lexer.l
 	flex --nounistd lexer.l
@@ -119,6 +120,9 @@ parser.tab.o: parser.tab.c
 
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(EXTLIBS) -o $(TARGET) $(OBJ)
+
+ldnsd-ctrl: ldnsd-ctrl.c tcp-statistic.h
+	$(CC) $(CFLAGS) $(EXTLIBS) -o ldnsd-ctrl ldnsd-ctrl.c
 
 clean:
 	$(RM) -f $(OBJ) $(TARGET) core vgcore.* lex.yy.c parser.tab.h parser.tab.c *~
