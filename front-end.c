@@ -522,6 +522,8 @@ int init_server_side(struct ctx *ctx)
 {
 	int ret;
 
+	pr_debug("initialize front-end side");
+
 	ret = nameserver_init(ctx);
 	if (ret == FAILURE) {
 		err_msg("cannot initialize nameserver context");

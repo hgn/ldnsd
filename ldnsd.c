@@ -34,6 +34,8 @@ static int initiate_seed(void)
 	int rand_fd;
 	uint32_t randpool;
 
+	pr_debug("initialize random number generator seed");
+
 	/* set randon pool seed */
 	rand_fd = open(RANDPOOLSRC, O_RDONLY);
 	if (rand_fd < 0) {
@@ -99,6 +101,8 @@ static struct ctx *ctx_init(void)
 
 	struct ctx *ctx = xzalloc(sizeof(struct ctx));
 
+	pr_debug("initialize global context");
+
 	ctx->ns_time_select_threshold    = DEFAULT_NS_TIME_SELECT_THRESHOLD;
 	ctx->ns_time_select_re_threshold = DEFAULT_TIME_SELECT_RE_THRESHOLD;
 
@@ -126,20 +130,17 @@ int main(int ac, char **av)
 
 	pr_debug("ldnsd - a fast and scalable DNS server (C) 2009-2011");
 
-	pr_debug("initialize random number generator seed");
 	ret = initiate_seed();
 	if (ret == FAILURE) {
 		err_msg("PRNG cannot be initialized satisfying (fallback to time(3) and getpid(3))");
 	}
 
-	pr_debug("initialize server context");
 	ctx = ctx_init();
 	if (!ctx)
 		err_msg_die(EXIT_FAILMISC, "Cannot initialize context");
 
 	ctx->ev_hndl = ev_init_hdntl();
 
-	pr_debug("parse command line options");
 	ret = parse_cli_options(ctx, &ctx->cli_opts, ac, av);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILOPT, "failure in commandline argument");
@@ -162,22 +163,22 @@ int main(int ac, char **av)
 	ctx->buf_max = ctx->cli_opts.edns0_max;
 	assert(ctx->buf_max >= 512);
 
-	pr_debug("initialize front-end side");
 	ret = init_server_side(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize server side");
 
-	pr_debug("initialize back-end side");
 	ret = init_client_side(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize client side");
 
-	pr_debug("initialize cache");
+	ret = init_tcp_statistic(ctx);
+	if (ret != SUCCESS)
+		err_msg_die(EXIT_FAILMISC, "cannot initialize TCP statistic interface");
+
 	ret = cache_init(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "cannot initialize cache");
 
-	pr_debug("parse zone files");
 	ret = parse_zonefiles(ctx);
 	if (ret != SUCCESS)
 		err_msg_die(EXIT_FAILMISC, "Failed to parse zone files");
@@ -187,6 +188,7 @@ int main(int ac, char **av)
 	pr_debug("preliminary work successfull - now switch info worker mode");
 	ev_loop(ctx->ev_hndl, flags);
 
+	destroy_tcp_statistic(ctx);
 	fini_server_socket(ctx->client_server_socket);
 	ev_free_hndl(ctx->ev_hndl);
 	cache_free(ctx);

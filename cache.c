@@ -129,6 +129,8 @@ void cache_data_free(void *arg)
 
 int cache_init(struct ctx *ctx)
 {
+	pr_debug("initialize cache");
+
 	switch (ctx->cache_backend) {
 		case CACHE_BACKEND_NONE:
 			pr_debug("initialize cache backend \"none\"");
