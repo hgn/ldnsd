@@ -52,20 +52,6 @@ ifeq ("$(origin MUDFLAP)", "command line")
 	EXTRA_CFLAGS += -fmudflap -lmudflap
 endif
 
-
-ifdef EPOLL
-				EXTRA_CFLAGS += -DHAVE_EPOLL
-endif
-
-CFLAGS += -ggdb3 -Wall -Wextra -std=gnu99 $(CFLAGS_OPTIMIZE) -D_FORTIFY_SOURCE=2 $(EXTRA_WARNINGS) $(EXTRA_CFLAGS)
-EXTLIBS = -lrt
-ALL_CFLAGS = $(CFLAGS)
-ALL_LDFLAGS = $(LDFLAGS)
-
-ifeq ($(shell sh -c "echo 'int foo(void) {char X[2]; return 3;}' | $(CC) -x c -c -Werror -fstack-protector-all - -o /dev/null "$(QUIET_STDERR)" && echo y"), y)
-  CFLAGS := $(CFLAGS) -fstack-protector-all
-endif
-
 OBJ := ev.o \
 			 ldnsd.o \
 			 clist.o \
@@ -90,6 +76,23 @@ OBJ := ev.o \
 			 type-028-aaaa.o \
 			 pkt-generator.o
 
+ifeq ("$(origin TCPSTATISTIC)", "command line")
+	OBJ += tcp-statistic.o
+	EXTRA_CFLAGS += -DTCP_STATISTIC
+endif
+
+ifdef EPOLL
+				EXTRA_CFLAGS += -DHAVE_EPOLL
+endif
+
+CFLAGS += -ggdb3 -Wall -Wextra -std=gnu99 $(CFLAGS_OPTIMIZE) -D_FORTIFY_SOURCE=2 $(EXTRA_WARNINGS) $(EXTRA_CFLAGS)
+EXTLIBS = -lrt
+ALL_CFLAGS = $(CFLAGS)
+ALL_LDFLAGS = $(LDFLAGS)
+
+ifeq ($(shell sh -c "echo 'int foo(void) {char X[2]; return 3;}' | $(CC) -x c -c -Werror -fstack-protector-all - -o /dev/null "$(QUIET_STDERR)" && echo y"), y)
+  CFLAGS := $(CFLAGS) -fstack-protector-all
+endif
 
 TARGET := ldnsd
 

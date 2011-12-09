@@ -70,6 +70,8 @@ int parse_cli_options(struct ctx *ctx, struct cli_opts *opts,
 
 	(void) ctx;
 
+	pr_debug("parse command line options");
+
 	set_default_options(opts);
 
 	opts->me = xstrdup(av[0]);

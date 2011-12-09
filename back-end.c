@@ -19,61 +19,6 @@
 #include "ldnsd.h"
 
 
-static int socket_bind(struct addrinfo *a)
-{
-	int ret, on = 1;
-	int fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
-	if (fd < 0)
-		return -1;
-
-	xsetsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on), "SO_REUSEADDR");
-
-	ret = bind(fd, a->ai_addr, a->ai_addrlen);
-	if (ret) {
-		err_sys("bind failed");
-		close(fd);
-		return -1;
-	}
-	return fd;
-}
-
-
-static int init_server_socket(int family, int socktype, int protocol, const char *port)
-{
-	const char *hostname = NULL;
-	int fd = -1;
-	struct addrinfo hosthints, *hostres, *addrtmp;
-
-	memset(&hosthints, 0, sizeof(struct addrinfo));
-
-	hosthints.ai_family   = family;
-	hosthints.ai_socktype = socktype;
-	hosthints.ai_protocol = protocol;
-	hosthints.ai_flags    = AI_PASSIVE | AI_ADDRCONFIG;
-
-	xgetaddrinfo(hostname, port, &hosthints, &hostres);
-
-	for (addrtmp = hostres; addrtmp != NULL ; addrtmp = addrtmp->ai_next) {
-		fd = socket_bind(addrtmp);
-		if (fd < 0)
-			continue;
-
-		break;
-	}
-
-	if (fd < 0)
-		err_msg_die(EXIT_FAILNET,
-				"Don't found a suitable address for binding,"
-				" giving up (TIP: start program with strace(2)"
-				" to find the problen)\n");
-
-	pr_debug("daemon itself listen at port %s", port);
-
-	freeaddrinfo(hostres);
-
-	return fd;
-}
-
 
 void fini_server_socket(int fd)
 {
@@ -643,6 +588,8 @@ static int ev_add_server_socket(struct ctx *ctx, int fd)
 int init_client_side(struct ctx *ctx)
 {
 	int ret;
+
+	pr_debug("initialize back-end side");
 
 	ctx->client_server_socket = init_server_socket(AF_INET, SOCK_DGRAM, 0, ctx->cli_opts.port);
 

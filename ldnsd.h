@@ -429,6 +429,10 @@ struct ctx {
 	uint16_t buf_max;
 
 	struct statistics statistics;
+
+#ifdef TCP_STATISTIC
+	int tcp_statistic_socket;
+#endif
 };
 
 
@@ -737,6 +741,8 @@ char *parse_ttl(char *, int *);
 void set_bit(int, unsigned long *);
 void clear_bit(int, unsigned long *);
 int test_bit(unsigned int, const unsigned long *);
+int init_server_socket(int, int, int, const char *);
+int socket_bind(struct addrinfo *);
 
 /* nameserver.c */
 int nameserver_add(struct ctx *, const char *, const char *, void (*cb)(int, int, void *));
@@ -941,6 +947,16 @@ struct dnslabel_table {
 int pkt_construct_dns_query(struct ctx *, struct dns_journey *, char *,
 		int, uint16_t, uint16_t , uint16_t, char *, size_t);
 off_t dnsname_to_labels(char *, size_t, off_t, const char *, const int, struct dnslabel_table *);
+
+
+/* tcp-statistic.c */
+#ifdef TCP_STATISTIC
+int init_tcp_statistic(struct ctx *);
+void destroy_tcp_statistic(struct ctx *);
+#else
+static inline int init_tcp_statistic(struct ctx *ctx) { (void) ctx; return SUCCESS; }
+static inline void destroy_tcp_statistic(struct ctx *ctx) { (void) ctx; }
+#endif
 
 
 #endif /* LDNSD_H */
